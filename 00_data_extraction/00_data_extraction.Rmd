@@ -1,0 +1,210 @@
+---
+title: "The Impact of Height on NHL Goalies (Data Extraction)"
+author: "Rayce Ramsay"
+date: "2025-03-13"
+output: github_document
+---
+
+
+## Resources
+
+- [(Unofficial) NHL API Docs](https://github.com/Zmalski/NHL-API-Reference?tab=readme-ov-file)
+- [NHL Goalie Bios API Example](https://api.nhle.com/stats/rest/en/goalie/bios?limit=-1&start=&sort=&cayenneExp=seasonId=20232024)
+- [Official NHL Goalie Stats](https://www.nhl.com/stats/goalies?report=bios&reportType=season&seasonFrom=20242025&seasonTo=20242025&gameType=2&sort=a_goalieFullName&page=0&pageSize=100)
+
+
+## Setup
+
+```{r, message=FALSE, warning=FALSE}
+# Load libraries
+library(tidyverse)
+library(httr2)
+```
+
+```{r}
+# Base URLS for NHL API
+NHL_API_BASE_URL = "https://api.nhle.com/stats/rest/"
+NHLWEB_API_BASE_URL = "https://api-web.nhle.com/"
+```
+
+
+## Get NHL Goalie Season Data
+
+```{r}
+# Get season IDs to query NHL API for starting with the 2000-2001 season
+START_YEARS = 2000:2024
+season_ids = NULL
+for (start_year in START_YEARS) {
+  season_ids = c(season_ids, paste0(start_year, start_year + 1))
+}
+
+season_ids
+```
+
+```{r}
+# Create URLs to fetch NHL goalie info by season
+summary_urls = paste0(NHL_API_BASE_URL, "en/goalie/summary?limit=-1&start=&sort=&cayenneExp=seasonId=", season_ids)
+bio_urls = paste0(NHL_API_BASE_URL, "en/goalie/bios?limit=-1&start=&sort=&cayenneExp=seasonId=", season_ids)
+
+# Create http request objects
+bio_reqs = lapply(bio_urls, httr2::request)
+summary_reqs = lapply(summary_urls, httr2::request)
+
+# Perform http requests
+bio_resps = req_perform_sequential(bio_reqs)
+summary_resps = req_perform_sequential(summary_reqs)
+```
+
+```{r}
+# Extract bios and summaries from requests
+bio_data = map2(bio_resps, season_ids, function(resp, season) {
+  goalies = resp_body_json(resp)$data
+  lapply(goalies, function(goalie) {
+    goalie$seasonId = season
+    map(goalie, ~ifelse(is.null(.), NA, .))
+  })
+})
+summary_data = map(summary_resps, function(resp) {
+  goalies = resp_body_json(resp)$data
+  lapply(goalies, function(goalie) {
+    goalie$seasonId = as.character(goalie$seasonId)
+    map(goalie, ~ifelse(is.null(.), NA, .))
+  })
+})
+
+# Convert extracted data to tibbles
+bios = list_rbind(map(list_c(bio_data), ~as_tibble(.x)))
+summaries = list_rbind(map(list_c(summary_data), ~as_tibble(.x)))
+
+dim(bios)
+head(bios)
+tail(bios)
+dim(summaries)
+head(summaries)
+tail(summaries)
+```
+
+```{r}
+# Select columns from summaries to keep for joining
+summaries_limited = summaries |>
+  select(!c(goalieFullName, lastName, shootsCatches)) # only keep summary/stats (non-bio) columns
+
+# Join goalie biographies and summaries into one tibble
+goalies = bios |>
+  select(!c(currentTeamAbbrev, firstSeasonForGameType, gamesPlayed, losses, otLosses, shutouts, ties, wins)) |> # only keep bio (non-summary) columns
+  distinct() |> # ignore duplicates since data has separate rows for playoffs and regular season
+  inner_join(summaries_limited, by = join_by(seasonId, playerId))
+  
+dim(goalies)
+head(goalies)
+tail(goalies)
+```
+
+```{r}
+# Tidy up some columns and sort
+goalies = goalies |>
+  rename(
+    catches = shootsCatches,
+    fullName = goalieFullName
+  ) |>
+  arrange(seasonId, fullName)
+
+dim(goalies)
+head(goalies)
+tail(goalies)
+```
+
+```{r}
+# Export NHL goalies data to a csv
+write_csv(goalies, "../data/nhl_goalies_data.csv")
+```
+
+
+## Get NHL Draft Ranking Data
+
+```{r}
+DRAFT_YEARS = 2008:2025  # data only goes back until 2008
+
+# Create URLs to fetch goalie prospect rankings by draft year.
+# Notice there are separate urls for North American and International goalies
+na_urls = paste0(NHLWEB_API_BASE_URL, "v1/draft/rankings/", DRAFT_YEARS, "/3")
+itl_urls = paste0(NHLWEB_API_BASE_URL, "v1/draft/rankings/", DRAFT_YEARS, "/4")
+
+# Create http request objects
+na_reqs = lapply(na_urls, httr2::request)
+itl_reqs = lapply(itl_urls, httr2::request)
+
+# Perform http requests
+na_resps = req_perform_sequential(na_reqs)
+itl_resps = req_perform_sequential(itl_reqs)
+```
+
+```{r}
+# Extract north american and international goalie prospects from requests
+na_data = map(na_resps, function(resp) {
+  resp_data = resp_body_json(resp)
+  goalies = resp_data$rankings
+  lapply(goalies, function(goalie) {
+    goalie$draftYear = resp_data$draftYear
+    goalie$midtermRank = ifelse(goalie$midtermRank, goalie$midtermRank, NA_integer_)
+    goalie$finalRank = ifelse(goalie$finalRank, goalie$finalRank, NA_integer_)
+    goalie$international = FALSE
+    map(goalie, ~ifelse(is.null(.), NA, .))
+  })
+})
+itl_data = map(itl_resps, function(resp) {
+  resp_data = resp_body_json(resp)
+  goalies = resp_data$rankings
+  lapply(goalies, function(goalie) {
+    goalie$draftYear = resp_data$draftYear
+    goalie$midtermRank = ifelse(goalie$midtermRank, goalie$midtermRank, NA_integer_)
+    goalie$finalRank = ifelse(goalie$finalRank, goalie$finalRank, NA_integer_)
+    goalie$international = TRUE
+    map(goalie, ~ifelse(is.null(.), NA, .))
+  })
+})
+
+# Convert extracted data to tibbles
+na_prospects = list_rbind(map(list_c(na_data), \(x) as_tibble(x) ))
+itl_prospects = list_rbind(map(list_c(itl_data), \(x) as_tibble(x) ))
+
+dim(na_prospects)
+head(na_prospects)
+tail(na_prospects)
+dim(itl_prospects)
+head(itl_prospects)
+tail(itl_prospects)
+```
+
+```{r}
+# Join north american and international goalie prospects into one tibble
+prospects = rbind(na_prospects, itl_prospects)
+
+dim(prospects)
+```
+
+```{r}
+# Tidy up some columns and sort
+prospects = prospects |>
+  mutate(
+    fullName = paste(firstName, lastName)
+  ) |>
+  select(!c(firstName, lastName)) |>
+  rename(
+    catches = shootsCatches,
+    height = heightInInches,
+    weight = weightInPounds, 
+    birthCountryCode = birthCountry
+  ) |>
+  arrange(draftYear, finalRank, midtermRank, fullName)
+
+dim(prospects)
+head(prospects)
+tail(prospects)
+```
+
+```{r}
+# Export NHL prospects data to a csv
+write_csv(prospects, "../data/nhl_goalie_prospects_data.csv")
+```
+
