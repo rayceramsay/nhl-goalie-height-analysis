@@ -2,10 +2,11 @@
 title: "The Impact of Height on NHL Goalies (Preliminary Report)"
 author: "Rayce Ramsay"
 date: "2025-03-17"
-output: pdf_document
+output: github_document
 header-includes:
   - \usepackage{caption}
   - \captionsetup{font=small}
+always_allow_html: true
 ---
 
 ```{r, include=FALSE}
@@ -245,7 +246,7 @@ goalies |>
     `Max.` = max(val, na.rm = T)
   ) |>
   arrange(match(Variable, c("Height (in)", "Games Played", "SV%", "GAA"))) |>
-  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average per season of NHL goalies since 2000.") |>
+  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average of NHL goalies in every season since 2000.") |>
   kable_styling(full_width = FALSE)
 ```
 
@@ -270,7 +271,7 @@ established_goalies |>
     `Max.` = max(val, na.rm = T)
   ) |>
   arrange(match(Variable, c("Height (in)", "Games Played", "SV%", "GAA"))) |>
-  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average of established NHL goalies since 2000.") |>
+  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average of established NHL goalies in every season since 2000.") |>
   kable_styling(full_width = FALSE)
 ```
 
@@ -289,13 +290,13 @@ prospects |>
     Variable = "Height (in)"
   ) |>
   relocate(Variable) |>
-  kable(digits = 2, caption = "Summary statistics for the height of ranked NHL goalie prospects since 2008.") |>
+  kable(digits = 2, caption = "Summary statistics for the height of ranked NHL goalie prospects in every draft year since 2008.") |>
   kable_styling(full_width = FALSE)
 ```
 
 In terms of where NHL goalies have been born, Figure 1 shows how the distribution of NHL goaltenders by birth country has changed over the past 20 years. The figure illustrates how North America - particularly, Canada - has been the biggest producer of NHL goaltenders during this period. It appears, however, that the number of Canadian goalies in the NHL has gradually decreased while the number of international goalies has increased.
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A bar chart displaying the top 5 most frequent birth countries of NHL goalies by season."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A bar chart displaying the top 5 most frequent birth countries of NHL goalies by season."}
 # Plot the top 5 goalie countries
 goalie_counts_by_country_and_season |>
   filter(seasonStartYear >= 2005) |>
@@ -319,7 +320,7 @@ goalie_counts_by_country_and_season |>
 
 Our analysis reveals a clear trend in NHL goaltender height over time. As shown in Figure 2, the average height of NHL goalies has increased steadily since 2000, rising from approximately 6’0.5” (72.5 inches) to roughly 6’3” (75 inches) in recent seasons. The minimum height of NHL goaltenders has also increased from 5'7" (67 inches) in 2000, to 5'10" (70 inches) in 2005, and finally to 5'11" (71 inches) in 2019, as demonstrated by Figure 3.
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season."}
 # Mean height of goalies per season
 goalie_heights_per_season |>
   ggplot(aes(x = seasonStartYear, y = mean_height)) +
@@ -341,7 +342,7 @@ goalie_heights_per_season |>
   )
 ```
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the minimum height of NHL goalies by season."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the minimum height of NHL goalies by season."}
 # Min height of goalies per season
 goalie_heights_per_season |>
   ggplot(aes(x = seasonStartYear, y = min_height)) +
@@ -365,7 +366,7 @@ goalie_heights_per_season |>
 
 The upward trend in NHL goalie height appears consistent across most birth countries, though Figure 4 highlights subtle differences across the four biggest NHL goaltender-producing countries (i.e. Canada, the United States, Finland, and Sweden). Compared to goaltenders from Finland and Sweden, goalies from Canada and the United States show a relatively more consistent increase in average height. While Canada and Finland's averages are currently around 6'3" (75 inches), the average is slightly lower for the United States at 6'2.5" (74.5 inches) and considerably higher for Sweden at around 6'4.5" (76.5 inches). Among draft-eligible prospects, Figure 5 shows a less significant pattern. Similar to NHL goalies, the average height of North American prospects has stayed close to 6'2" (74 inches) with relatively similar growth trends as the overall population. International goalies, on the other hand, have varied between 6'1" (73 inches) and 6'3" (75 inches) over the last 14 years. It is worth noting, however, that the number of ranked international goalies per year has been consistently less than the North American class, which could explain the extra variance.
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season and birth country for the top 4 goalie producing countries."}
+```{r, echo=FALSE, fig.height=4, fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season and birth country for the top 4 goalie-producing countries."}
 # Mean height of goalies per season and birth country
 goalie_heights_per_season_country |>
   ggplot(aes(x = seasonStartYear, y = mean_height, colour = birthCountryCode)) +
@@ -389,7 +390,7 @@ goalie_heights_per_season_country |>
   )
 ```
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the average height of ranked NHL goalie prospects by draft year and whether or not they are born in North America"}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average height of ranked NHL goalie prospects by draft year and whether or not they were born in North America."}
 # Mean height of prospects per draft year and international status
 prospect_heights_per_season_and_nation |>
   ggplot(aes(x = draftYear, y = mean_height, colour = nation)) +
@@ -413,7 +414,7 @@ prospect_heights_per_season_and_nation |>
 
 From a statistical perspective, NHL goaltending performance has decreased over the past decade. Figure 6 demonstrates that the league-wide average save percentage has trended downwards since the 2014-15 season, starting at 0.915 and finishing at 0.901. As expected, the league-wide goals against average increased over the same period from 2.50 in 2014-15 to 2.80 in 2024-25, while peaking at 2.96 in 2022-23. This decrease is shown in Figure 7. Comparable numbers and trends are prevalent when strictly analyzing established goalies. This makes sense given that approximately 85% of the shots against and 84% of the goals against in the past 25 years have happened on established goalies.
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season."}
 # Mean league wide save percentage by season
 league_stats_by_season |>
   ggplot(aes(x = seasonStartYear, y = mean_savePct)) +
@@ -431,7 +432,7 @@ league_stats_by_season |>
   )
 ```
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season."}
 # Mean league wide GAA by season
 league_stats_by_season |>
   ggplot(aes(x = seasonStartYear, y = mean_goalsAgainstAverage)) +
@@ -453,7 +454,7 @@ league_stats_by_season |>
 
 There appears to be little difference in performance between shorter and taller goalies. Figures 8 and 9 illustrate this by comparing the average save percentage and goals against average for both groups over the past 25 years. As shown in Figure 8, save percentages have remained relatively similar across most seasons, regardless of height. Likewise, Figure 9 reveals a comparable trend in goals against average, suggesting that height does not play a significant role in these performance metrics.
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season grouped by whether the goalies are tall or short."}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season grouped by whether the goalies are tall or short."}
 # Mean league wide save percentage of each season grouped by undersize status
 established_league_stats_by_season_undersized |>
   ggplot(aes(x = seasonStartYear, y = mean_savePct, color = undersized)) +
@@ -469,10 +470,11 @@ established_league_stats_by_season_undersized |>
   scale_x_continuous(
     breaks = seq(2000, 2024, 2),
     labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
-  )
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-```{r, echo=FALSE, out.height="3in", fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season grouped by whether the goalies are tall or short"}
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season grouped by whether the goalies are tall or short"}
 # Mean league wide GAA of each season grouped by undersize status
 established_league_stats_by_season_undersized |>
   ggplot(aes(x = seasonStartYear, y = mean_goalsAgainstAverage, color = undersized)) +
@@ -488,7 +490,8 @@ established_league_stats_by_season_undersized |>
   scale_x_continuous(
     breaks = seq(2000, 2024, 2),
     labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
-  )
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 ## Summary
