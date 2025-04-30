@@ -1,0 +1,14 @@
+name: "nhl-goalie-height-analysis"
+output_dir: "_site"
+navbar:
+  title: "NHL Goalie Height Analysis"
+  left:
+    - text: "Home"
+      href: index.html
+  right:
+    - icon: fa-github fa-lg
+      text: " Github Repo"
+      href: https://github.com/rayceramsay/nhl-goalie-height-analysis
+output:
+  html_document:
+    theme: cosmo
