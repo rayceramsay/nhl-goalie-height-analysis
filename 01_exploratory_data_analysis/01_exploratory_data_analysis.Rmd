@@ -48,7 +48,7 @@ head(prospects)
 tail(prospects)
 ```
 
-Integer columns are being imported as doubles so I will explicitly set the types for these columns. We could also convert some of the character columns to factos. There doesn't appear to be any import errors otherwise. We have 2256 rows across 34 variables for the NHL goalies by season data and 869 rows across 15 variables for the NHL goalie prospects by draft year data.
+Integer columns are being imported as doubles so I will explicitly set the types for these columns. We could also convert some of the character columns to factors. There doesn't appear to be any import errors otherwise. We have 2256 rows across 34 variables for the NHL goalies by season data and 869 rows across 15 variables for the NHL goalie prospects by draft year data.
 
 ```{r}
 # Convert the invalid double columns in the goalies data to integers and create some factors
@@ -97,7 +97,7 @@ summary(goalies$otLosses)
 str(prospects)
 ```
 
-We fixed issues with integers being cast as doubles. There appear to be a lot NA's in OT losses column but that's okay since we won't use it anyways. There don't appear to be any other major issues at the surface level other than that.
+We fixed issues with integers being cast as doubles. There appear to be a lot of NA's in OT losses column for goalies but that's okay since we won't use it anyways. There don't appear to be any other major issues at the surface level other than that.
 
 
 ## Data Manipulation
@@ -196,13 +196,13 @@ Adding the extra variables will help check the validity of the data with respect
 summary(goalies)
 ```
 
-It appears most variables in the goalies data have reasonable values, although there are some potential issues (i.e. with height, time on ice, and save percentage): 
+It appears most variables in the goalies data have reasonable values, although there are some potential issues (i.e. with height, time on ice, and save percentage):
 
 - The age range of 18-42 years old makes sense given that NHL players need to be at least 18 years old and many stop playing before their forties (although some do - the oldest active NHL goalie is 40).
 
 - The heights of goalies ranges from 67-79 inches or 5'7"-6'7". This is a reasonable range, although I will have to confirm 5'7" is accurate given this is considered extremely undersized for an NHL goalie.
 
-- There are 377 NA's in each of the draft variables. This makes sense given that you can make the NHL without being selected in the NHL Entry Draft (although it is definitely more rare). For further comfort, each of `draftYear`, `draftRound`, and `draftOverall` have exactly the same number of NA's which is a good sign that `drafted` is encoded properly since being undrafted means all 3 of these variables should be empty. 
+- There are 377 NA's in each of the draft variables. This makes sense given that you can make the NHL without being selected in the NHL Entry Draft (although it is definitely more rare). For further comfort, each of `draftYear`, `draftRound`, and `draftOverall` have exactly the same number of NA's which is a good sign that `drafted` is encoded properly since being undrafted means all 3 of these variables should be empty.
 
 - The maximum number of games that can be played in a single season (including regular season and playoffs) is 110 so the range of 1-97 for games played and 0-57 for wins makes sense, further validating the data.
 
@@ -437,7 +437,7 @@ goalies |>
   ggcorrplot(lab = T, title = "Correlation Between Physical Attributes and\nTime of NHL Goalies")
 ```
 
-It appears that NHL goalies have been trending taller over the past 25 years. The mean height has consistently increased from about 72.4 inches to just over 75 inches. Similarly, the minimum height has risen from 67 inches to 71 inches, median from 73 inches to 75 inches, and maximum from 76 to 79 inches. It is worth noting that the minimum and maximum don't necessarily mean much since there could be one very small/big goalie who stays in the league for multiple seasons. However, the upward trend in mean height and moderately strong correlation coefficient of 0.39 between height and season is indicative of NHL goalies getting bigger. On top of this, there hasn't been a goalie under 5'11" in the past 6 seasons. 
+It appears that NHL goalies have been trending taller over the past 25 years. The mean height has consistently increased from about 72.4 inches to just over 75 inches. Similarly, the minimum height has risen from 67 inches to 71 inches, median from 73 inches to 75 inches, and maximum from 76 to 79 inches. It is worth noting that the minimum and maximum don't necessarily mean much since there could be one very small/big goalie who stays in the league for multiple seasons. However, the upward trend in mean height and moderately strong correlation coefficient of 0.39 between height and season is indicative of NHL goalies getting bigger. On top of this, there hasn't been a goalie under 5'11" in the past 6 seasons.
 
 ```{r}
 # Check how many observations are considered established
@@ -1132,4 +1132,3 @@ established_league_stats_by_season_undersized |>
 ```
 
 There does not appear to be any significant correlation or visual trend between being an undersized (established) goalie and having good performance statistics. The correlation coefficient between height and save percentage is 0.08. Similarly, the correlation coefficient between height and goals against average is 0.08.
-
