@@ -1,0 +1,19 @@
+Version: 1.0
+ProjectId: 9412c8ee-955e-4b80-a22c-0a43db03f539
+
+RestoreWorkspace: Default
+SaveWorkspace: Default
+AlwaysSaveHistory: Default
+
+EnableCodeIndexing: Yes
+UseSpacesForTab: Yes
+NumSpacesForTab: 2
+Encoding: UTF-8
+
+RnwWeave: Sweave
+LaTeX: pdfLaTeX
+
+BuildType: Website
+WebsitePath: website_src
+
+ProjectName: nhl-goalie-height-analysis

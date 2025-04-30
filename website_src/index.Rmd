@@ -1,0 +1,10 @@
+---
+title: "NHL Goalie Height Analysis"
+author: "Rayce Ramsay"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+Hello world!
