@@ -1,0 +1,537 @@
+---
+title: "The Impact of Height on NHL Goalies (Modelling)"
+author: "Rayce Ramsay"
+date: "2025-04-28"
+output: github_document
+---
+
+
+## Setup
+
+```{r}
+# Load libraries
+library(kableExtra)
+library(tidyverse)
+library(mgcv)
+library(GGally)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(pdp)
+```
+
+
+## Previous Data Loading and Pre-Processing
+
+```{r}
+# Load data extracted from the NHL APIs (extraction done in separate file)
+goalies = read_csv("../data/nhl_goalies_data.csv")
+prospects = read_csv("../data/nhl_goalie_prospects_data.csv")
+
+# Convert the invalid double columns in the goalies data to integers and create some factors
+goalies = goalies |>
+  mutate(
+    across(
+      c(seasonId, playerId, height, weight, draftYear, draftRound, draftOverall, assists, 
+        gamesPlayed, gamesStarted, goals, goalsAgainst, losses, otLosses, penaltyMinutes,
+        points, saves, shotsAgainst, shutouts, ties, timeOnIce, wins),
+      as.integer
+    ),
+    across(
+      c(birthCountryCode, isInHallOfFameYn, catches),
+      as.factor
+    )
+  )
+
+# Convert the invalid double columns in the prospects data to integers and create some factors
+prospects = prospects |>
+  mutate(
+    across(
+      c(draftYear, height, weight, midtermRank, finalRank),
+      as.integer
+    ),
+    across(
+      c(positionCode, catches, birthCountryCode),
+      as.factor
+    )
+  )
+
+# Create column for checking whether a goalie was drafted or not
+goalies = goalies |>
+  mutate(
+    drafted = !is.na(draftYear)
+  )
+
+# Create column for goalie age as of the beginning of the season (i.e. September 15th as per NHL Hockey Operations Guidelines)
+goalies = goalies |>
+  separate(seasonId, into = c("seasonStartYear", "seasonEndYear"), sep = 4,
+           convert = T, remove = F) |>
+  mutate(
+    ageAtSeasonStart = as.integer(
+      interval(birthDate, date(paste0(seasonStartYear, "-09-15"))) / years()
+    )
+  )
+
+# Get the average goalie height minus 2 inches for every season
+undersize_heights_per_season = goalies |>
+  group_by(seasonId) |>
+  summarize(
+    undersize_threshold = mean(height) - 2
+  ) |>
+  ungroup()
+
+# Create column classifying a goalie as undersized or not (i.e. <= 2" below average)
+goalies = goalies |>
+  left_join(undersize_heights_per_season, by = "seasonId") |>
+  mutate(
+    undersized = height <= undersize_threshold
+  )
+
+# Create column for prospect age as of the start of the next season (i.e. September 15th as per NHL Hockey Operations Guidelines)
+prospects = prospects |>
+  mutate(
+    draftYearAge = as.integer(
+      interval(birthDate, date(paste0(draftYear, "-09-15"))) / years()
+    )
+  )
+
+# Find emergency situation goalies
+emergency_goalies = goalies |>
+  filter (fullName %in% c("Shawn Hunwick", "Jorge Alves", "Jett Alexander",
+                          "Thomas Hodges", "Matthew Berlin", "Scott Foster"))
+
+# Remove emergency goalies from data
+goalies = goalies |>
+  anti_join(emergency_goalies, by = "playerId")
+
+# Get established goalies
+established_goalies = goalies |>
+  filter(gamesPlayed >= 25 | (gamesPlayed >= 22 & seasonStartYear == 2024))
+```
+
+
+## More Data Loading and Validation
+
+```{r}
+# Load NHL team standings data (extracted in separate file)
+teams = read_csv("../data/nhl_teams_data.csv")
+```
+
+```{r}
+# Check for import issues with NHL teams data
+dim(teams)
+head(teams)
+tail(teams)
+```
+
+```{r}
+# Convert the invalid double columns in the teams data to integers and create some factors
+teams = teams |>
+  mutate(
+    across(
+      c(seasonId, blockedShotAttemptsAgainst, dZoneGiveawaysAgainst),
+      as.integer
+    ),
+    across(
+      c(teamAbbrev),
+      as.factor
+    )
+  )
+```
+
+```{r}
+# Check the variable types in the teams data
+str(teams)
+```
+
+```{r}
+# Summarize the teams data
+summary(teams)
+```
+
+We have 490 rows across 6 variables for the NHL teams data. No unexpected import issues found. It appears all variables in the teams data have reasonable values.
+
+
+## More Data Processing
+
+```{r}
+# Limit each goalies team to be the team they finished the season with
+goalies = goalies |>
+  mutate(
+    teamAbbrev = as.factor(substr(teamAbbrevs, nchar(teamAbbrevs) - 2, nchar(teamAbbrevs))) # take last 3 chars
+  )
+
+table(goalies$teamAbbrev)
+```
+
+```{r}
+# Normalize team stats to be per 60 minutes played for comparison
+teams = teams |>
+  mutate(
+    teamXGoalsAgainstPer60 = (xGoalsAgainst / iceTime) * 3600,
+    teamBlockedShotsPer60 = (blockedShotAttemptsAgainst / iceTime) * 3600,
+    teamDZoneGiveawaysPer60 = (dZoneGiveawaysAgainst / iceTime) * 3600
+  ) |>
+  rename(teamIceTime = iceTime) |>
+  select(!c(xGoalsAgainst, blockedShotAttemptsAgainst, dZoneGiveawaysAgainst))
+
+summary(teams)
+```
+
+```{r}
+# Denormalize the goalies data to include team stats of the last team they played on in each season (starting in 2008)
+goalies = goalies |>
+  inner_join(teams, by = c("seasonId", "teamAbbrev")) |>
+  relocate(seasonId, playerId, teamAbbrev)
+
+dim(goalies)
+head(goalies)
+tail(goalies)
+```
+
+```{r}
+# Get established goalies again (since goalies has changed)
+established_goalies = goalies |>
+  filter(gamesPlayed >= 25 | (gamesPlayed >= 22 & seasonStartYear == 2024))
+
+dim(established_goalies)
+```
+
+
+## More EDA
+
+```{r}
+# Explore distribution of team expected goals against per 60 minutes
+teams |>
+  ggplot(aes(teamXGoalsAgainstPer60)) +
+  geom_histogram(binwidth = 0.05, color = "black", fill = "lightblue") +
+  labs(
+    title = "Distribution of Team Expected Goals Against Per 60 Minutes\nfor Every Season Since 2008",
+    x = "Expected Goals Against Per 60 Minutes",
+    y = "Frequency"
+  )
+```
+
+```{r}
+# Explore distribution of team blocked shots per 60 minutes
+teams |>
+  ggplot(aes(teamBlockedShotsPer60)) +
+  geom_histogram(binwidth = 0.3, color = "black", fill = "lightblue") +
+  labs(
+    title = "Distribution of Team Blocked Shots Per 60 Minutes\nfor Every Season Since 2008",
+    x = "Blocked Shots Per 60 Minutes",
+    y = "Frequency"
+  )
+```
+
+```{r}
+# Explore distribution of team dzone giveaways per 60 minutes
+teams |>
+  ggplot(aes(teamDZoneGiveawaysPer60)) +
+  geom_histogram(binwidth = 0.2, color = "black", fill = "lightblue") +
+  labs(
+    title = "Distribution of Team DZone Giveaways Per 60 Minutes\nfor Every Season Since 2008",
+    x = "DZone Giveaways Per 60 Minutes",
+    y = "Frequency"
+  )
+```
+
+Expected goals against per 60 minutes and blocked shots per 60 minutes appear to be normally distributed. Meanwhile, defensive zone giveaways per 60 minutes appears to be right skewed.
+
+```{r, message=FALSE}
+# Visualize relationships between performance metrics and goalie characteristics
+established_goalies |>
+  select(height, weight, ageAtSeasonStart, savePct, goalsAgainstAverage) |>
+  rename(Height = height, Weight = weight, Age = ageAtSeasonStart, `SV%` = savePct, GAA = goalsAgainstAverage) |>
+  ggpairs()
+
+# Visualize relationships between performance metrics and team stats
+established_goalies |>
+  select(teamXGoalsAgainstPer60, teamBlockedShotsPer60, teamDZoneGiveawaysPer60, savePct, goalsAgainstAverage) |>
+  rename(xGAA = teamXGoalsAgainstPer60, `Avg Blocks` = teamBlockedShotsPer60, `Avg DZone Giveaways` = teamDZoneGiveawaysPer60, `SV%` = savePct, GAA = goalsAgainstAverage) |>
+  ggpairs()
+
+# Visualize relationships between performance metrics and time
+established_goalies |>
+  select(seasonStartYear, savePct, goalsAgainstAverage) |>
+  rename(Season = seasonStartYear, `SV%` = savePct, GAA = goalsAgainstAverage) |>
+  ggpairs()
+```
+
+SV% and GAA appear to be moderately correlated with team expected goals against average, weakly to moderately correlated with average team blocks per 60 minutes, and very weakly correlated with average team dzone giveaways per 60 minutes. Additionally, SV% appears to have a left skew while GAA has a slight right skew. The beta distribution makes sense for SV% since it is continuous and bounded between 0 and 1. The gamma distribution makes sense for GAA since it is positive and skewed to the right.
+
+
+## GAM Modelling
+
+```{r}
+# Fit a GAM for SV% using height
+savePct_gam = gam(
+  savePct ~ 
+    s(seasonStartYear, bs="cr", k=10) 
+  + s(height, bs="cr", k=10) 
+  + s(weight, bs="cr", k=20) 
+  + s(ageAtSeasonStart, bs="cr", k=20)
+  + s(teamXGoalsAgainstPer60, bs="cr", k=20) 
+  + s(teamBlockedShotsPer60, bs="cr", k=20) 
+  + s(teamDZoneGiveawaysPer60, bs="cr", k=20) 
+  + s(birthCountryCode, bs="re") 
+  + s(teamAbbrev, bs="re") 
+  + catches, 
+  data = established_goalies,
+  method = "ML",
+  family = betar(link = "logit")
+)
+
+summary(savePct_gam)
+plot(savePct_gam)
+```
+
+```{r}
+# Check diagnostics for SV% GAM with height
+gam.check(savePct_gam)
+```
+
+```{r}
+# Fit a GAM for GAA using height
+gaa_gam = gam(
+  goalsAgainstAverage ~ 
+    s(seasonStartYear, bs="cr", k=10) 
+  + s(height, bs="cr", k=10) 
+  + s(weight, bs="cr", k=20) 
+  + s(ageAtSeasonStart, bs="cr", k=20)
+  + s(teamXGoalsAgainstPer60, bs="cr", k=20) 
+  + s(teamBlockedShotsPer60, bs="cr", k=20) 
+  + s(teamDZoneGiveawaysPer60, bs="cr", k=20) 
+  + s(birthCountryCode, bs="re") 
+  + s(teamAbbrev, bs="re") 
+  + catches,
+  data = established_goalies,
+  method = "ML",
+  family = Gamma(link = "log")
+)
+
+summary(gaa_gam)
+plot(gaa_gam)
+```
+
+```{r}
+# Check diagnostics for GAA GAM using height
+gam.check(gaa_gam)
+```
+
+Notice that height is not statistically significant in either GAM. However, the estimated smooth function for SV% suggests a potentially positive association with height while the estimated smooth function for GAA suggests a potentially negative association with height. 
+
+```{r}
+# Fit a GAM for SV% using undersized
+savePct_gam2 = gam(
+  savePct ~ 
+    s(seasonStartYear, bs="cr", k=10) 
+  + undersized
+  + s(weight, bs="cr", k=20) 
+  + s(ageAtSeasonStart, bs="cr", k=20)
+  + s(teamXGoalsAgainstPer60, bs="cr", k=20) 
+  + s(teamBlockedShotsPer60, bs="cr", k=20) 
+  + s(teamDZoneGiveawaysPer60, bs="cr", k=20) 
+  + s(birthCountryCode, bs="re") 
+  + s(teamAbbrev, bs="re") 
+  + catches, 
+  data = established_goalies,
+  method = "ML",
+  family = betar(link = "logit")
+)
+
+summary(savePct_gam2)
+plot(savePct_gam2)
+```
+
+```{r}
+# Check diagnostics for SV% GAM with undersized
+gam.check(savePct_gam2)
+```
+
+```{r}
+# Fit a GAM for GAA using undersized
+gaa_gam2 = gam(
+  goalsAgainstAverage ~ 
+    s(seasonStartYear, bs="cr", k=10) 
+  + undersized 
+  + s(weight, bs="cr", k=20) 
+  + s(ageAtSeasonStart, bs="cr", k=20)
+  + s(teamXGoalsAgainstPer60, bs="cr", k=20) 
+  + s(teamBlockedShotsPer60, bs="cr", k=20) 
+  + s(teamDZoneGiveawaysPer60, bs="cr", k=20) 
+  + s(birthCountryCode, bs="re") 
+  + s(teamAbbrev, bs="re") 
+  + catches,
+  data = established_goalies,
+  method = "ML",
+  family = Gamma(link = "log")
+)
+
+summary(gaa_gam2)
+plot(gaa_gam2)
+```
+
+```{r}
+# Check diagnostics for GAA GAM using undersized
+gam.check(gaa_gam2)
+```
+
+Notice that undersized status is not statistically significant in either GAM. However, the estimated coefficient of undersized for SV% suggests shorter goalies have lower SV% while the estimated coefficient of undersized for GAA suggests shorter goalies have a higher GAA, on average. The variance of these coefficients show that this is in no way conclusive however.
+
+
+## Decision Tree Modelling
+
+```{r}
+set.seed(42)
+
+# Fit decision tree model for SV% (using height and undersized)
+savePct_dt = rpart(
+  savePct ~ seasonStartYear + height + undersized + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  method = "anova", 
+  control = rpart.control(cp = 0.01)
+)
+
+# Plot CP table, CV error vs CP, and final tree
+printcp(savePct_dt)
+plotcp(savePct_dt)
+rpart.plot(savePct_dt, main = "Regression Tree for SV%")
+```
+
+```{r}
+set.seed(42)
+
+# Fit decision tree model for GAA (using height and undersized)
+gaa_dt = rpart(
+  goalsAgainstAverage ~ seasonStartYear + height + undersized + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  method = "anova", 
+  control = rpart.control(cp = 0.01)
+)
+
+# Plot CP table, CV error vs CP, and final tree
+printcp(gaa_dt)
+plotcp(gaa_dt)
+rpart.plot(gaa_dt, main = "Regression Tree for GAA")
+```
+
+Notice that neither height or undersized status gets used in any of the regression trees, indicating that is not a relevant predictor to SV% or GAA.
+
+
+## Random Forest Modelling
+
+```{r}
+set.seed(42)
+
+# Fit RF model for SV% using height
+savePct_rf = randomForest(
+  savePct ~ seasonStartYear + height + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  importance = TRUE)
+
+savePct_rf
+```
+
+```{r}
+# Plot variable importance for SV% RF using height
+varImpPlot(savePct_rf, main = "Variable Importance Plots of SV% Random Forest Model (w/ Height)")
+importance(savePct_rf) |>
+  as.data.frame() |>
+  rownames_to_column(var = "Variable") |>
+  arrange(desc(`%IncMSE`))
+```
+
+```{r}
+# Extract the effect of height in the SV% RF
+partial(savePct_rf, pred.var = "height", plot = TRUE)
+```
+
+```{r}
+set.seed(42)
+
+# Fit RF model for GAA using height
+gaa_rf = randomForest(
+  goalsAgainstAverage ~ seasonStartYear + height + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  importance = TRUE)
+
+gaa_rf
+```
+
+```{r}
+# Plot variable importance for GAA RF using height
+varImpPlot(gaa_rf, main = "Variable Importance Plots of GAA Random Forest Model (w/ Height)")
+importance(gaa_rf) |>
+  as.data.frame() |>
+  rownames_to_column(var = "Variable") |>
+  arrange(desc(`%IncMSE`))
+```
+
+```{r}
+# Extract the effect of height in the GAA RF
+partial(gaa_rf, pred.var = "height", plot = TRUE)
+```
+
+Notice that both the SV% and GAA random forest models perform worse than the GAM in terms of variance explained. Similar to the GAMs, height is not an important variable in an already weak model. Also like the gams, however, it appears the shortest of goalies have worse SV% and GAA than taller goalies.
+
+```{r}
+set.seed(42)
+
+# Fit RF model for SV% using undersized
+savePct_rf2 = randomForest(
+  savePct ~ seasonStartYear + undersized + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  importance = TRUE)
+
+savePct_rf2
+```
+
+```{r}
+# Plot variable importance for SV% RF using undersized status
+varImpPlot(savePct_rf2, main = "Variable Importance Plots of SV% Random Forest Model (w/ Undersized)")
+importance(savePct_rf2) |>
+  as.data.frame() |>
+  rownames_to_column(var = "Variable") |>
+  arrange(desc(`%IncMSE`))
+```
+
+```{r}
+# Extract the effect of undersized status in the SV% RF
+partial(savePct_rf2, pred.var = "undersized", plot = TRUE)
+```
+
+```{r}
+set.seed(42)
+
+# Fit RF model for GAA using undersized
+gaa_rf2 = randomForest(
+  goalsAgainstAverage ~ seasonStartYear + undersized + weight + ageAtSeasonStart + teamXGoalsAgainstPer60 + teamBlockedShotsPer60 
+          + teamDZoneGiveawaysPer60 + birthCountryCode + teamAbbrev + catches,
+  data = established_goalies,
+  importance = TRUE)
+
+gaa_rf2
+```
+
+```{r}
+# Plot variable importance for GAA RF using undersized status
+varImpPlot(gaa_rf2, main = "Variable Importance Plots of GAA Random Forest Model (w/ Undersized)")
+importance(gaa_rf2) |>
+  as.data.frame() |>
+  rownames_to_column(var = "Variable") |>
+  arrange(desc(`%IncMSE`))
+```
+
+```{r}
+# Extract the effect of undersized status in the GAA RF
+partial(gaa_rf2, pred.var = "undersized", plot = TRUE)
+```
+
+Notice that both the SV% and GAA random forest models using undersized status perform worse than the GAMs in terms of variance explained. Similar to the GAMs, undersized status is not an important variable in an already weak model. Also like the GAMs, however, it appears the shortest of goalies have worse SV% and GAA than taller goalies.
+

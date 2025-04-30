@@ -1,7 +1,7 @@
 ---
 title: "The Impact of Height on NHL Goalies (Data Extraction)"
 author: "Rayce Ramsay"
-date: "2025-03-13"
+date: "2025-03-13 (Updated 2025-04-27)"
 output: github_document
 ---
 
@@ -27,9 +27,6 @@ NHL_API_BASE_URL = "https://api.nhle.com/stats/rest/"
 NHLWEB_API_BASE_URL = "https://api-web.nhle.com/"
 ```
 
-
-## Get NHL Goalie Season Data
-
 ```{r}
 # Get season IDs to query NHL API for starting with the 2000-2001 season
 START_YEARS = 2000:2024
@@ -40,6 +37,9 @@ for (start_year in START_YEARS) {
 
 season_ids
 ```
+
+
+## Get NHL Goalie Season Data
 
 ```{r}
 # Create URLs to fetch NHL goalie info by season
@@ -208,3 +208,153 @@ tail(prospects)
 write_csv(prospects, "../data/nhl_goalie_prospects_data.csv")
 ```
 
+
+*The following code was added on 2025-04-27.*
+
+## Get NHL Season Standings Data
+
+We need to first query an endpoint to find the last day of the regular season from each season so we can figure out end of season standings for each team later.
+
+```{r}
+# Create URL to fetch NHL structure data for each season 
+struct_url = paste0(NHLWEB_API_BASE_URL, "v1/standings-season")
+
+# Create http request object
+struct_req = httr2::request(struct_url)
+
+# Perform http request
+struct_resp = req_perform(struct_req)
+```
+
+```{r}
+# Extract season structures from request
+struct_data = resp_body_json(struct_resp)$seasons
+
+# Convert extracted data to tibble
+structs = list_rbind(map(struct_data, ~as_tibble(.x)))
+
+# Only keep season ids and end dates past 2000
+structs = structs |>
+  rename(seasonId = id) |>
+  filter(seasonId %in% season_ids) |>
+  select(seasonId, standingsEnd) |>
+  arrange(seasonId)
+
+# Change 2024-25 season standings date to match previous extraction date (if running later than previous code)
+structs = structs |>
+  mutate(standingsEnd = if_else(seasonId == 20242025, "2025-03-13", standingsEnd))
+
+dim(structs)
+structs
+```
+
+Now that we know the last day of each, we can query for final team standings.
+
+```{r}
+# Create URLs to fetch NHL team standings info by season
+standings_urls = paste0(NHLWEB_API_BASE_URL, "v1/standings/", structs$standingsEnd)
+
+# Create http request objects
+standings_reqs = lapply(standings_urls, httr2::request)
+
+# Perform http requests
+standings_resps = req_perform_sequential(standings_reqs)
+```
+
+```{r}
+# Extract team standings per season from requests
+standings_data = map(standings_resps, function(resp) {
+  standings = resp_body_json(resp)$standings
+  lapply(standings, function(standing) {
+    standing$placeName = standing$placeName$default
+    standing$teamName = standing$teamName$default
+    standing$teamCommonName = standing$teamCommonName$default
+    standing$teamAbbrev = standing$teamAbbrev$default
+    map(standing, ~ifelse(is.null(.), NA, .))
+  })
+})
+
+# Convert extracted data to tibbles
+standings = list_rbind(map(list_c(standings_data), ~as_tibble(.x)))
+
+# Keep relevant team info and stats
+standings = standings |>
+  select(seasonId, teamAbbrev, pointPctg, winPctg, goalsForPctg, goalDifferentialPctg, wildcardSequence) |>
+  arrange(seasonId, teamAbbrev)
+
+dim(standings)
+head(standings)
+tail(standings)
+```
+
+```{r}
+# Export NHL standings data to a csv
+write_csv(standings, "../data/nhl_standings_data.csv")
+```
+
+
+## Get NHL Team Season Data
+
+The following team datasets were downloaded manually for each season from https://moneypuck.com/data.htm.
+
+```{r}
+# Load in team stats datasets from each year (only have data since 2008-09 season)
+TEAM_START_YEARS = 2008:2024
+team_data_paths = paste0("../data/raw/teams_", TEAM_START_YEARS, ".csv")
+teams = team_data_paths |>
+  map(read_csv) |>
+  bind_rows()
+
+head(teams)
+tail(teams)
+```
+
+
+```{r}
+# View column names for teams data
+dim(teams)
+names(teams)
+```
+
+
+```{r}
+# Tidy up metadata columns and only keep relevant info
+teams = teams |>
+  filter(situation == "all", position == "Team Level") |>
+  mutate(
+    seasonId = as.integer(paste0(as.character(season), season + 1)),
+    teamAbbrev = as.factor(team...1)
+  ) |>
+  select(seasonId, teamAbbrev, iceTime, xGoalsAgainst, blockedShotAttemptsAgainst, dZoneGiveawaysAgainst)
+  
+dim(teams)
+head(teams)
+tail(teams)
+```
+
+```{r}
+# View differences in team name abbreviations between datasets
+table(sort(as.character(teams$teamAbbrev)))
+table(sort(as.character(goalies$teamAbbrevs)))
+```
+
+```{r}
+# Rename team name abbreviations from teams to match goalies dataset
+teams = teams |>
+  mutate(
+    teamAbbrev = case_when(
+      teamAbbrev == "L.A" ~ "LAK",
+      teamAbbrev == "N.J" ~ "NJD",
+      teamAbbrev == "S.J" ~ "SJS",
+      teamAbbrev == "T.B" ~ "TBL",
+      TRUE ~ teamAbbrev
+    )
+  )
+
+table(teams$teamAbbrev)
+```
+
+```{r}
+# Export NHL teams data to a csv
+write_csv(teams, "../data/nhl_teams_data.csv")
+```
