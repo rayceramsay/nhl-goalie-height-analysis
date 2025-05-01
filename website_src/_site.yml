@@ -4,10 +4,17 @@ navbar:
   title: "NHL Goalie Height Analysis"
   left:
     - text: "Home"
-      href: index.html
+      href: "index.html"
+    - text: "EDA"
+      href: "eda.html"
+    - text: "Modelling"
+      href: "modelling.html"
+    - text: "Report"
+      href: "report.html"
+    - text: "Interactive"
+      href: "interactive.html"
   right:
     - icon: fa-github fa-lg
-      text: " Github Repo"
       href: https://github.com/rayceramsay/nhl-goalie-height-analysis
 output:
   html_document:

@@ -1,10 +1,36 @@
 ---
-title: "NHL Goalie Height Analysis"
-author: "Rayce Ramsay"
+title: "Home"
 output: 
     html_document:
         toc: TRUE
-        toc_float: TRUE
 ---
 
-Hello world!
+
+## Project Description
+
+This project explores whether a goaltender's height meaningfully influences their performance in the NHL. Using publicly available NHL data, I analyzed over two decades of goalie statistics, prospect rankings, and team defensive metrics. I examined trends in goalie height by season and birth country, and modelled performance using save percentage (SV%) and goals against average (GAA) as outcome variables.
+
+To assess the relationship between height and performance, I used a combination of generalized additive models (GAMs), decision trees, and random forests in R. While NHL teams have increasingly favoured taller goalies, the modelling results show that height alone is not a strong predictor of SV% or GAA. Instead, team context and other factors play a larger role.
+
+The analysis combines data wrangling, visualization, and interpretable machine learning to provide a data-driven perspective on goaltender evaluation and scouting trends.
+
+
+## Where to Read
+
+- A PDF version of the report (along with all the files used to produce it) can be read and downloaded from the [github repository](https://github.com/rayceramsay/nhl-goalie-height-analysis/blob/main/04_final_report/04_final_report.pdf).
+
+- An online version of the report can be read on this website by navigating to the [Report page](./report.html).
+  
+  - Note: table and figure numbers are currently missing from the online version.
+
+  
+## Resources Used
+
+Data was gathered and validated from the following sources:
+
+- [NHL Web API Base URL](https://api-web.nhle.com)
+- [NHL Stats API Base URL](https://api.nhle.com/stats/rest)
+- [@Zmalski Unofficial NHL API Docs](https://github.com/Zmalski/NHL-API-Reference)
+- [Money Puck website](https://moneypuck.com/data.htm)
+- [NHL website](https://www.nhl.com/stats/)
+- [Elite Prospects website](https://www.eliteprospects.com/)

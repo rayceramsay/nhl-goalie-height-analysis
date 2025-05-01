@@ -9,9 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Rayce Ramsay" />
 
+<meta name="date" content="2025-04-30" />
 
-<title>Home</title>
+<title>Interactive Visualizations</title>
 
 <script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
@@ -29,6 +31,9 @@
        h6 {font-size: 12px;}
        code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
        pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
@@ -221,6 +226,69 @@ $(document).ready(function () {
 
 
 
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
 
 </head>
 
@@ -228,6 +296,16 @@ $(document).ready(function () {
 
 
 <div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
 
 
 
@@ -276,73 +354,19 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Home</h1>
+<h1 class="title toc-ignore">Interactive Visualizations</h1>
+<h4 class="author">Rayce Ramsay</h4>
+<h4 class="date">2025-04-30</h4>
 
 </div>
 
-<div id="TOC">
-<ul>
-<li><a href="#project-description" id="toc-project-description">Project
-Description</a></li>
-<li><a href="#where-to-read" id="toc-where-to-read">Where to
-Read</a></li>
-<li><a href="#resources-used" id="toc-resources-used">Resources
-Used</a></li>
-</ul>
-</div>
-
-<div id="project-description" class="section level2">
-<h2>Project Description</h2>
-<p>This project explores whether a goaltender’s height meaningfully
-influences their performance in the NHL. Using publicly available NHL
-data, I analyzed over two decades of goalie statistics, prospect
-rankings, and team defensive metrics. I examined trends in goalie height
-by season and birth country, and modelled performance using save
-percentage (SV%) and goals against average (GAA) as outcome
-variables.</p>
-<p>To assess the relationship between height and performance, I used a
-combination of generalized additive models (GAMs), decision trees, and
-random forests in R. While NHL teams have increasingly favoured taller
-goalies, the modelling results show that height alone is not a strong
-predictor of SV% or GAA. Instead, team context and other factors play a
-larger role.</p>
-<p>The analysis combines data wrangling, visualization, and
-interpretable machine learning to provide a data-driven perspective on
-goaltender evaluation and scouting trends.</p>
-</div>
-<div id="where-to-read" class="section level2">
-<h2>Where to Read</h2>
-<ul>
-<li><p>A PDF version of the report (along with all the files used to
-produce it) can be read and downloaded from the <a
-href="https://github.com/rayceramsay/nhl-goalie-height-analysis/blob/main/04_final_report/04_final_report.pdf">github
-repository</a>.</p></li>
-<li><p>An online version of the report can be read on this website by
-navigating to the <a href="./report.html">Report page</a>.</p>
-<ul>
-<li>Note: table and figure numbers are currently missing from the online
-version.</li>
-</ul></li>
-</ul>
-</div>
-<div id="resources-used" class="section level2">
-<h2>Resources Used</h2>
-<p>Data was gathered and validated from the following sources:</p>
-<ul>
-<li><a href="https://api-web.nhle.com">NHL Web API Base URL</a></li>
-<li><a href="https://api.nhle.com/stats/rest">NHL Stats API Base
-URL</a></li>
-<li><a href="https://github.com/Zmalski/NHL-API-Reference"><span
-class="citation">@Zmalski</span> Unofficial NHL API Docs</a></li>
-<li><a href="https://moneypuck.com/data.htm">Money Puck website</a></li>
-<li><a href="https://www.nhl.com/stats/">NHL website</a></li>
-<li><a href="https://www.eliteprospects.com/">Elite Prospects
-website</a></li>
-</ul>
-</div>
 
 
 
+
+
+</div>
+</div>
 
 </div>
 
@@ -375,6 +399,35 @@ $(document).ready(function () {
 
 <!-- code folding -->
 
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
 
 <!-- dynamically load mathjax for compatibility with self-contained -->
 <script>
