@@ -335,7 +335,7 @@ div.tocify {
   <a href="report.html">Report</a>
 </li>
 <li>
-  <a href="interactive.html">Interactive</a>
+  <a href="extras.html">Extras</a>
 </li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
@@ -404,7 +404,7 @@ class="section level2">
 <pre class="r"><code># Load data extracted from the NHL APIs (extraction done in separate file)
 goalies = read_csv(&quot;../data/nhl_goalies_data.csv&quot;)</code></pre>
 <pre><code>## Rows: 2256 Columns: 34
-## ── Column specification ───────────────────
+## ── Column specification ────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr   (9): birthCity, birthCountryCode, birthStateProvinceCode, fullName, is...
 ## dbl  (24): draftOverall, draftRound, draftYear, height, playerId, weight, se...
@@ -414,7 +414,7 @@ goalies = read_csv(&quot;../data/nhl_goalies_data.csv&quot;)</code></pre>
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
 <pre class="r"><code>prospects = read_csv(&quot;../data/nhl_goalie_prospects_data.csv&quot;)</code></pre>
 <pre><code>## Rows: 869 Columns: 15
-## ── Column specification ───────────────────
+## ── Column specification ────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr  (8): positionCode, catches, lastAmateurClub, lastAmateurLeague, birthCi...
 ## dbl  (5): height, weight, midtermRank, finalRank, draftYear
@@ -508,7 +508,7 @@ established_goalies = goalies |&gt;
 <pre class="r"><code># Load NHL team standings data (extracted in separate file)
 teams = read_csv(&quot;../data/nhl_teams_data.csv&quot;)</code></pre>
 <pre><code>## Rows: 490 Columns: 6
-## ── Column specification ───────────────────
+## ── Column specification ────────────────────────────────────
 ## Delimiter: &quot;,&quot;
 ## chr (1): teamAbbrev
 ## dbl (5): seasonId, iceTime, xGoalsAgainst, blockedShotAttemptsAgainst, dZone...
@@ -807,13 +807,13 @@ gam.check(savePct_gam)</code></pre>
 ## indicate that k is too low, especially if edf is close to k&#39;.
 ## 
 ##                               k&#39;   edf k-index p-value  
-## s(seasonStartYear)          9.00  3.21    1.02   0.730  
-## s(height)                   9.00  1.00    1.02   0.670  
-## s(weight)                  19.00  2.19    0.96   0.105  
-## s(ageAtSeasonStart)        19.00  1.24    1.02   0.690  
-## s(teamXGoalsAgainstPer60)  19.00  1.00    0.97   0.175  
-## s(teamBlockedShotsPer60)   19.00  1.00    0.94   0.025 *
-## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99   0.390  
+## s(seasonStartYear)          9.00  3.21    1.02   0.690  
+## s(height)                   9.00  1.00    1.02   0.685  
+## s(weight)                  19.00  2.19    0.96   0.130  
+## s(ageAtSeasonStart)        19.00  1.24    1.02   0.750  
+## s(teamXGoalsAgainstPer60)  19.00  1.00    0.97   0.190  
+## s(teamBlockedShotsPer60)   19.00  1.00    0.94   0.035 *
+## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99   0.385  
 ## s(birthCountryCode)        14.00  4.82      NA      NA  
 ## s(teamAbbrev)              34.00 16.45      NA      NA  
 ## ---
@@ -890,13 +890,13 @@ gam.check(gaa_gam)</code></pre>
 ## indicate that k is too low, especially if edf is close to k&#39;.
 ## 
 ##                               k&#39;   edf k-index p-value
-## s(seasonStartYear)          9.00  4.82    1.04    0.88
-## s(height)                   9.00  1.00    1.02    0.74
+## s(seasonStartYear)          9.00  4.82    1.04    0.83
+## s(height)                   9.00  1.00    1.02    0.72
 ## s(weight)                  19.00  1.00    0.99    0.47
-## s(ageAtSeasonStart)        19.00  1.85    1.01    0.68
-## s(teamXGoalsAgainstPer60)  19.00  1.00    0.98    0.33
-## s(teamBlockedShotsPer60)   19.00  1.00    0.97    0.17
-## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99    0.45
+## s(ageAtSeasonStart)        19.00  1.85    1.01    0.61
+## s(teamXGoalsAgainstPer60)  19.00  1.00    0.98    0.27
+## s(teamBlockedShotsPer60)   19.00  1.00    0.97    0.18
+## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99    0.42
 ## s(birthCountryCode)        14.00  4.38      NA      NA
 ## s(teamAbbrev)              34.00 17.30      NA      NA</code></pre>
 <p>Notice that height is not statistically significant in either GAM.
@@ -974,12 +974,12 @@ gam.check(savePct_gam2)</code></pre>
 ## indicate that k is too low, especially if edf is close to k&#39;.
 ## 
 ##                               k&#39;   edf k-index p-value  
-## s(seasonStartYear)          9.00  3.22    1.02   0.755  
-## s(weight)                  19.00  2.22    0.96   0.095 .
-## s(ageAtSeasonStart)        19.00  1.27    1.02   0.690  
-## s(teamXGoalsAgainstPer60)  19.00  1.00    0.97   0.160  
-## s(teamBlockedShotsPer60)   19.00  1.00    0.94   0.085 .
-## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99   0.375  
+## s(seasonStartYear)          9.00  3.22    1.02    0.66  
+## s(weight)                  19.00  2.22    0.96    0.12  
+## s(ageAtSeasonStart)        19.00  1.27    1.02    0.70  
+## s(teamXGoalsAgainstPer60)  19.00  1.00    0.97    0.17  
+## s(teamBlockedShotsPer60)   19.00  1.00    0.94    0.03 *
+## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99    0.36  
 ## s(birthCountryCode)        14.00  4.75      NA      NA  
 ## s(teamAbbrev)              34.00 16.51      NA      NA  
 ## ---
@@ -1055,12 +1055,12 @@ gam.check(gaa_gam2)</code></pre>
 ## indicate that k is too low, especially if edf is close to k&#39;.
 ## 
 ##                               k&#39;   edf k-index p-value
-## s(seasonStartYear)          9.00  4.82    1.04    0.86
-## s(weight)                  19.00  1.00    0.99    0.37
-## s(ageAtSeasonStart)        19.00  1.86    1.01    0.66
+## s(seasonStartYear)          9.00  4.82    1.04    0.81
+## s(weight)                  19.00  1.00    0.99    0.42
+## s(ageAtSeasonStart)        19.00  1.86    1.01    0.64
 ## s(teamXGoalsAgainstPer60)  19.00  1.00    0.98    0.28
-## s(teamBlockedShotsPer60)   19.00  1.00    0.97    0.14
-## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99    0.43
+## s(teamBlockedShotsPer60)   19.00  1.00    0.97    0.17
+## s(teamDZoneGiveawaysPer60) 19.00  1.00    0.99    0.47
 ## s(birthCountryCode)        14.00  4.29      NA      NA
 ## s(teamAbbrev)              34.00 17.19      NA      NA</code></pre>
 <p>Notice that undersized status is not statistically significant in

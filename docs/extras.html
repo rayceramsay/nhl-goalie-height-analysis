@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Rayce Ramsay" />
+
+<meta name="date" content="2025-04-30" />
+
+<title>Extras (Interactive Visualizations)</title>
+
+<script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/htmltools-fill-0.5.8.1/fill.css" rel="stylesheet" />
+<script src="site_libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<script src="site_libs/plotly-binding-4.10.4/plotly.js"></script>
+<script src="site_libs/typedarray-0.1/typedarray.min.js"></script>
+<link href="site_libs/crosstalk-1.2.1/css/crosstalk.min.css" rel="stylesheet" />
+<script src="site_libs/crosstalk-1.2.1/js/crosstalk.min.js"></script>
+<link href="site_libs/plotly-htmlwidgets-css-2.11.1/plotly-htmlwidgets.css" rel="stylesheet" />
+<script src="site_libs/plotly-main-2.11.1/plotly-latest.min.js"></script>
+<link href="site_libs/font-awesome-6.5.2/css/all.min.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">NHL Goalie Height Analysis</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="eda.html">EDA</a>
+</li>
+<li>
+  <a href="modelling.html">Modelling</a>
+</li>
+<li>
+  <a href="report.html">Report</a>
+</li>
+<li>
+  <a href="extras.html">Extras</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li>
+  <a href="https://github.com/rayceramsay/nhl-goalie-height-analysis">
+    <span class="fa fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Extras (Interactive Visualizations)</h1>
+<h4 class="author">Rayce Ramsay</h4>
+<h4 class="date">2025-04-30</h4>
+
+</div>
+
+
+<p>Below are some interactive visualizations using the extracted
+data.</p>
+<div id="number-of-shutouts-per-nhl-season" class="section level2">
+<h2>Number of Shutouts per NHL Season</h2>
+<div class="figure" style="text-align: center">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-fb71831b213be6badbaa" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-fb71831b213be6badbaa">{"x":{"data":[{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[204,204,193,214,127,160,174,169,165,195,190,118,174,180,165,171,158,162,130,131,147,121,147],"text":["Season Start: 2000<br />Total Shutouts: 204","Season Start: 2001<br />Total Shutouts: 204","Season Start: 2002<br />Total Shutouts: 193","Season Start: 2003<br />Total Shutouts: 214","Season Start: 2005<br />Total Shutouts: 127","Season Start: 2006<br />Total Shutouts: 160","Season Start: 2007<br />Total Shutouts: 174","Season Start: 2008<br />Total Shutouts: 169","Season Start: 2009<br />Total Shutouts: 165","Season Start: 2010<br />Total Shutouts: 195","Season Start: 2011<br />Total Shutouts: 190","Season Start: 2012<br />Total Shutouts: 118","Season Start: 2013<br />Total Shutouts: 174","Season Start: 2014<br />Total Shutouts: 180","Season Start: 2015<br />Total Shutouts: 165","Season Start: 2016<br />Total Shutouts: 171","Season Start: 2017<br />Total Shutouts: 158","Season Start: 2018<br />Total Shutouts: 162","Season Start: 2019<br />Total Shutouts: 130","Season Start: 2020<br />Total Shutouts: 131","Season Start: 2021<br />Total Shutouts: 147","Season Start: 2022<br />Total Shutouts: 121","Season Start: 2023<br />Total Shutouts: 147"],"type":"scatter","mode":"lines+markers","line":{"width":1.8897637795275593,"color":"rgba(173,216,230,1)","dash":"solid"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","marker":{"autocolorscale":false,"color":"rgba(0,0,153,1)","opacity":1,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,0,153,1)"}},"frame":null}],"layout":{"margin":{"t":43.762557077625573,"r":7.3059360730593621,"b":40.182648401826498,"l":43.105022831050235},"font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724},"title":{"text":"Number of Shutouts per NHL Season","font":{"color":"rgba(0,0,0,1)","family":"","size":17.534246575342465},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[1998.8499999999999,2024.1500000000001],"tickmode":"array","ticktext":["00-01","02-03","04-05","06-07","08-09","10-11","12-13","14-15","16-17","18-19","20-21","22-23","24-25"],"tickvals":[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2024],"categoryorder":"array","categoryarray":["00-01","02-03","04-05","06-07","08-09","10-11","12-13","14-15","16-17","18-19","20-21","22-23","24-25"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"y","title":{"text":"Season","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[113.2,218.80000000000001],"tickmode":"array","ticktext":["120","140","160","180","200"],"tickvals":[120,140,160,180,200],"categoryorder":"array","categoryarray":["120","140","160","180","200"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"x","title":{"text":"Total Number of Shutouts","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"shapes":[{"type":"rect","fillcolor":null,"line":{"color":null,"width":0,"linetype":[]},"yref":"paper","xref":"paper","x0":0,"x1":1,"y0":0,"y1":1}],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":11.68949771689498}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false},"source":"A","attrs":{"5fc53870e0f7":{"x":{},"y":{},"type":"scatter"},"5fc57ac19513":{"x":{},"y":{}}},"cur_data":"5fc53870e0f7","visdat":{"5fc53870e0f7":["function (y) ","x"],"5fc57ac19513":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+<p class="caption">
+A line plot showing the total number of shutouts recorded per NHL season
+from 2000-01 to 2023-24. The number of shutouts has generally declined
+over time, with notable dips in shortened or disrupted seasons (e.g.,
+2004–05, 2012–13, and 2020–21).
+</p>
+</div>
+</div>
+<div id="average-age-of-nhl-goalies-per-season" class="section level2">
+<h2>Average Age of NHL Goalies per Season</h2>
+<div class="figure" style="text-align: center">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-4a6b13b3bcf887e2ef0d" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-4a6b13b3bcf887e2ef0d">{"x":{"data":[{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[27.087912087912088,27.399999999999999,27.51063829787234,27.40625,27.322580645161292,28.11904761904762,27.577777777777779,27.670329670329672,27.69047619047619,27.674157303370787,27.877777777777776,28.012195121951219,27.469999999999999,27.26595744680851,26.86021505376344,27.229166666666668,27.711340206185568,27.946236559139784,27.989010989010989,27.663265306122447,27.608333333333334,27.25925925925926,27.591836734693878],"text":["Season Start: 2000<br />Mean Age: 27.08791","Season Start: 2001<br />Mean Age: 27.40000","Season Start: 2002<br />Mean Age: 27.51064","Season Start: 2003<br />Mean Age: 27.40625","Season Start: 2005<br />Mean Age: 27.32258","Season Start: 2006<br />Mean Age: 28.11905","Season Start: 2007<br />Mean Age: 27.57778","Season Start: 2008<br />Mean Age: 27.67033","Season Start: 2009<br />Mean Age: 27.69048","Season Start: 2010<br />Mean Age: 27.67416","Season Start: 2011<br />Mean Age: 27.87778","Season Start: 2012<br />Mean Age: 28.01220","Season Start: 2013<br />Mean Age: 27.47000","Season Start: 2014<br />Mean Age: 27.26596","Season Start: 2015<br />Mean Age: 26.86022","Season Start: 2016<br />Mean Age: 27.22917","Season Start: 2017<br />Mean Age: 27.71134","Season Start: 2018<br />Mean Age: 27.94624","Season Start: 2019<br />Mean Age: 27.98901","Season Start: 2020<br />Mean Age: 27.66327","Season Start: 2021<br />Mean Age: 27.60833","Season Start: 2022<br />Mean Age: 27.25926","Season Start: 2023<br />Mean Age: 27.59184"],"type":"scatter","mode":"lines+markers","line":{"width":1.8897637795275593,"color":"rgba(173,216,230,1)","dash":"solid"},"hoveron":"points","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","marker":{"autocolorscale":false,"color":"rgba(0,0,153,1)","opacity":1,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,0,153,1)"}},"frame":null}],"layout":{"margin":{"t":43.762557077625573,"r":7.3059360730593621,"b":40.182648401826498,"l":37.260273972602747},"font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724},"title":{"text":"Average Age of NHL Goaltenders by Season","font":{"color":"rgba(0,0,0,1)","family":"","size":17.534246575342465},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[1998.8499999999999,2024.1500000000001],"tickmode":"array","ticktext":["00-01","02-03","04-05","06-07","08-09","10-11","12-13","14-15","16-17","18-19","20-21","22-23","24-25"],"tickvals":[2000,2002,2004,2006,2008,2010,2012,2014,2016,2018,2020,2022,2024],"categoryorder":"array","categoryarray":["00-01","02-03","04-05","06-07","08-09","10-11","12-13","14-15","16-17","18-19","20-21","22-23","24-25"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"y","title":{"text":"Season","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[26.797273425499231,28.181989247311829],"tickmode":"array","ticktext":["27","28"],"tickvals":[27,28],"categoryorder":"array","categoryarray":["27","28"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"x","title":{"text":"Mean Age","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"shapes":[{"type":"rect","fillcolor":null,"line":{"color":null,"width":0,"linetype":[]},"yref":"paper","xref":"paper","x0":0,"x1":1,"y0":0,"y1":1}],"showlegend":false,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":11.68949771689498}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false},"source":"A","attrs":{"5fc56d819058":{"x":{},"y":{},"type":"scatter"},"5fc5552bb992":{"x":{},"y":{}}},"cur_data":"5fc56d819058","visdat":{"5fc56d819058":["function (y) ","x"],"5fc5552bb992":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+<p class="caption">
+Trends in the average age of NHL goaltenders at the start of each season
+from 2000-01 to 2023-24. The average goaltender age has been stable over
+the past two decades, hovering between 27 and 28 years old.
+</p>
+</div>
+</div>
+<div
+id="average-sv-of-nhl-goaltenders-by-season-and-catching-handedness"
+class="section level2">
+<h2>Average SV% of NHL Goaltenders by Season and Catching
+Handedness</h2>
+<div class="figure" style="text-align: center">
+<div class="plotly html-widget html-fill-item" id="htmlwidget-ba44eb79a6a939df0e31" style="width:672px;height:480px;"></div>
+<script type="application/json" data-for="htmlwidget-ba44eb79a6a939df0e31">{"x":{"data":[{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[0.90422619942848548,0.90820729436344638,0.90959316926167755,0.91134563038883232,0.90158092706241688,0.90573209245130093,0.90935875986437864,0.90837533269154536,0.91113090449373635,0.91327246225351333,0.91472151606193663,0.91353443734396111,0.91358838163114364,0.91484815909701689,0.91548857533245853,0.91428533924891375,0.91238924443708369,0.91038189601269781,0.91051861174571469,0.90880706287683033,0.90756112374804987,0.90462979862505322,0.90353641236802795],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(248,118,109,1)","dash":"solid"},"hoveron":"points","name":"L","legendgroup":"L","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[0.89963863337713534,0.91071699257238137,0.90852869265065439,0.91465724024744355,0.90142302716688227,0.91043239533287579,0.91046972269383131,0.91342335186656076,0.9104812000779271,0.91114357816443081,0.90870754501937545,0.90894130554031816,0.91500610004066696,0.9195590994371482,0.90700371057513918,0.90579268292682924,0.90293742017879952,0.90586932447397561,0.90508993494068124,0.91209616829451545,0.90400537032893269,0.90106732348111662,0.90507364975450078],"text":"","type":"scatter","mode":"lines","line":{"width":1.8897637795275593,"color":"rgba(0,191,196,1)","dash":"solid"},"hoveron":"points","name":"R","legendgroup":"R","showlegend":true,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[0.90422619942848548,0.90820729436344638,0.90959316926167755,0.91134563038883232,0.90158092706241688,0.90573209245130093,0.90935875986437864,0.90837533269154536,0.91113090449373635,0.91327246225351333,0.91472151606193663,0.91353443734396111,0.91358838163114364,0.91484815909701689,0.91548857533245853,0.91428533924891375,0.91238924443708369,0.91038189601269781,0.91051861174571469,0.90880706287683033,0.90756112374804987,0.90462979862505322,0.90353641236802795],"text":["Season: 2000<br />Catches: L<br />Mean SV%: 0.904<br />N: 84","Season: 2001<br />Catches: L<br />Mean SV%: 0.908<br />N: 83","Season: 2002<br />Catches: L<br />Mean SV%: 0.91<br />N: 84","Season: 2003<br />Catches: L<br />Mean SV%: 0.911<br />N: 89","Season: 2005<br />Catches: L<br />Mean SV%: 0.902<br />N: 83","Season: 2006<br />Catches: L<br />Mean SV%: 0.906<br />N: 76","Season: 2007<br />Catches: L<br />Mean SV%: 0.909<br />N: 81","Season: 2008<br />Catches: L<br />Mean SV%: 0.908<br />N: 80","Season: 2009<br />Catches: L<br />Mean SV%: 0.911<br />N: 76","Season: 2010<br />Catches: L<br />Mean SV%: 0.913<br />N: 81","Season: 2011<br />Catches: L<br />Mean SV%: 0.915<br />N: 82","Season: 2012<br />Catches: L<br />Mean SV%: 0.914<br />N: 73","Season: 2013<br />Catches: L<br />Mean SV%: 0.914<br />N: 91","Season: 2014<br />Catches: L<br />Mean SV%: 0.915<br />N: 88","Season: 2015<br />Catches: L<br />Mean SV%: 0.915<br />N: 88","Season: 2016<br />Catches: L<br />Mean SV%: 0.914<br />N: 91","Season: 2017<br />Catches: L<br />Mean SV%: 0.912<br />N: 91","Season: 2018<br />Catches: L<br />Mean SV%: 0.91<br />N: 87","Season: 2019<br />Catches: L<br />Mean SV%: 0.911<br />N: 84","Season: 2020<br />Catches: L<br />Mean SV%: 0.909<br />N: 94","Season: 2021<br />Catches: L<br />Mean SV%: 0.908<br />N: 113","Season: 2022<br />Catches: L<br />Mean SV%: 0.905<br />N: 101","Season: 2023<br />Catches: L<br />Mean SV%: 0.904<br />N: 91"],"type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(248,118,109,1)","opacity":1,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(248,118,109,1)"}},"hoveron":"points","name":"L","legendgroup":"L","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null},{"x":[2000,2001,2002,2003,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],"y":[0.89963863337713534,0.91071699257238137,0.90852869265065439,0.91465724024744355,0.90142302716688227,0.91043239533287579,0.91046972269383131,0.91342335186656076,0.9104812000779271,0.91114357816443081,0.90870754501937545,0.90894130554031816,0.91500610004066696,0.9195590994371482,0.90700371057513918,0.90579268292682924,0.90293742017879952,0.90586932447397561,0.90508993494068124,0.91209616829451545,0.90400537032893269,0.90106732348111662,0.90507364975450078],"text":["Season: 2000<br />Catches: R<br />Mean SV%: 0.9<br />N: 7","Season: 2001<br />Catches: R<br />Mean SV%: 0.911<br />N: 7","Season: 2002<br />Catches: R<br />Mean SV%: 0.909<br />N: 10","Season: 2003<br />Catches: R<br />Mean SV%: 0.915<br />N: 7","Season: 2005<br />Catches: R<br />Mean SV%: 0.901<br />N: 10","Season: 2006<br />Catches: R<br />Mean SV%: 0.91<br />N: 8","Season: 2007<br />Catches: R<br />Mean SV%: 0.91<br />N: 9","Season: 2008<br />Catches: R<br />Mean SV%: 0.913<br />N: 11","Season: 2009<br />Catches: R<br />Mean SV%: 0.91<br />N: 8","Season: 2010<br />Catches: R<br />Mean SV%: 0.911<br />N: 8","Season: 2011<br />Catches: R<br />Mean SV%: 0.909<br />N: 8","Season: 2012<br />Catches: R<br />Mean SV%: 0.909<br />N: 9","Season: 2013<br />Catches: R<br />Mean SV%: 0.915<br />N: 9","Season: 2014<br />Catches: R<br />Mean SV%: 0.92<br />N: 6","Season: 2015<br />Catches: R<br />Mean SV%: 0.907<br />N: 5","Season: 2016<br />Catches: R<br />Mean SV%: 0.906<br />N: 5","Season: 2017<br />Catches: R<br />Mean SV%: 0.903<br />N: 6","Season: 2018<br />Catches: R<br />Mean SV%: 0.906<br />N: 6","Season: 2019<br />Catches: R<br />Mean SV%: 0.905<br />N: 7","Season: 2020<br />Catches: R<br />Mean SV%: 0.912<br />N: 4","Season: 2021<br />Catches: R<br />Mean SV%: 0.904<br />N: 7","Season: 2022<br />Catches: R<br />Mean SV%: 0.901<br />N: 7","Season: 2023<br />Catches: R<br />Mean SV%: 0.905<br />N: 7"],"type":"scatter","mode":"markers","marker":{"autocolorscale":false,"color":"rgba(0,191,196,1)","opacity":1,"size":5.6692913385826778,"symbol":"circle","line":{"width":1.8897637795275593,"color":"rgba(0,191,196,1)"}},"hoveron":"points","name":"R","legendgroup":"R","showlegend":false,"xaxis":"x","yaxis":"y","hoverinfo":"text","frame":null}],"layout":{"margin":{"t":43.762557077625573,"r":7.3059360730593621,"b":40.182648401826498,"l":54.794520547945211},"font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724},"title":{"text":"Average SV% of NHL Goaltenders<br />by Season and Catching Handedness","font":{"color":"rgba(0,0,0,1)","family":"","size":17.534246575342465},"x":0,"xref":"paper"},"xaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[1998.8499999999999,2024.1500000000001],"tickmode":"array","ticktext":["'00","'06","'12","'18","'24"],"tickvals":[2000,2006,2012,2018,2024],"categoryorder":"array","categoryarray":["'00","'06","'12","'18","'24"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"y","title":{"text":"Season","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"yaxis":{"domain":[0,1],"automargin":true,"type":"linear","autorange":false,"range":[0.89864261007413471,0.92055512274014883],"tickmode":"array","ticktext":["0.900","0.905","0.910","0.915","0.920"],"tickvals":[0.90000000000000002,0.90500000000000003,0.91000000000000003,0.91500000000000004,0.92000000000000004],"categoryorder":"array","categoryarray":["0.900","0.905","0.910","0.915","0.920"],"nticks":null,"ticks":"","tickcolor":null,"ticklen":3.6529680365296811,"tickwidth":0,"showticklabels":true,"tickfont":{"color":"rgba(77,77,77,1)","family":"","size":11.68949771689498},"tickangle":-0,"showline":false,"linecolor":null,"linewidth":0,"showgrid":true,"gridcolor":"rgba(235,235,235,1)","gridwidth":0.66417600664176002,"zeroline":false,"anchor":"x","title":{"text":"Mean SV%","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}},"hoverformat":".2f"},"shapes":[{"type":"rect","fillcolor":null,"line":{"color":null,"width":0,"linetype":[]},"yref":"paper","xref":"paper","x0":0,"x1":1,"y0":0,"y1":1}],"showlegend":true,"legend":{"bgcolor":null,"bordercolor":null,"borderwidth":0,"font":{"color":"rgba(0,0,0,1)","family":"","size":11.68949771689498},"title":{"text":"Catches","font":{"color":"rgba(0,0,0,1)","family":"","size":14.611872146118724}}},"hovermode":"closest","barmode":"relative"},"config":{"doubleClick":"reset","modeBarButtonsToAdd":["hoverclosest","hovercompare"],"showSendToCloud":false},"source":"A","attrs":{"5fc55054086a":{"x":{},"y":{},"colour":{},"type":"scatter"},"5fc53cf49059":{"x":{},"y":{},"colour":{},"text":{}}},"cur_data":"5fc55054086a","visdat":{"5fc55054086a":["function (y) ","x"],"5fc53cf49059":["function (y) ","x"]},"highlight":{"on":"plotly_click","persistent":false,"dynamic":false,"selectize":false,"opacityDim":0.20000000000000001,"selected":{"opacity":1},"debounce":0},"shinyEvents":["plotly_hover","plotly_click","plotly_selected","plotly_relayout","plotly_brushed","plotly_brushing","plotly_clickannotation","plotly_doubleclick","plotly_deselect","plotly_afterplot","plotly_sunburstclick"],"base_url":"https://plot.ly"},"evals":[],"jsHooks":[]}</script>
+<p class="caption">
+Average save percentage (SV%) of NHL goaltenders by season and catching
+handedness. While left-catching goalies are more common, both groups
+have shown similar performance trends over time, with no consistent
+advantage observed for either handedness. Differences may reflect sample
+size variability rather than meaningful performance gaps.
+</p>
+</div>
+</div>
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
