@@ -2,7 +2,7 @@
 title: "The Impact of Height on NHL Goalies"
 author: "Rayce Ramsay"
 date: "2025-04-30"
-output: github_document
+output: pdf_document
 header-includes:
   - \usepackage{caption}
   - \captionsetup{font=small}
@@ -722,7 +722,7 @@ param_terms |>
   kable_styling(full_width = FALSE)
 ```
 
-```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Estimated smooth effect of height on GAA and their corresponding 95\\% confidence intervals from the GAM with a Gamma distribution and log link."}
+```{r, echo=FALSE, fig.height=4, fig.align="center", fig.cap="Estimated smooth effect of height on GAA and their corresponding 95% confidence intervals from the GAM with a Gamma distribution and log link."}
 plot(gaa_gam, select = 2, shade = TRUE, rug = TRUE,
      main = "Smooth Effect of Height on GAA",
      ylab = "Effect on log (GAA)",
@@ -827,7 +827,7 @@ param_terms |>
   kable_styling(full_width = FALSE)
 ```
 
-```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Estimated smooth effect of height on SV% and their corresponding 95% confidence intervals from the GAM with a Beta distribution and logit link."}
+```{r, echo=FALSE, fig.height=4, fig.align="center", fig.cap="Estimated smooth effect of height on SV% and their corresponding 95% confidence intervals from the GAM with a Beta distribution and logit link."}
 plot(savePct_gam, select = 2, shade = TRUE, rug = TRUE,
      main = "Smooth Effect of Height on SV%",
      ylab = "Effect on logit (SV%)",

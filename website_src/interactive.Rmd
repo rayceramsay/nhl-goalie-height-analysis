@@ -8,3 +8,5 @@ output:
         toc_float: TRUE
 ---
 
+Below are some extra visualizations that you can interact with.
+

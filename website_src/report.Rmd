@@ -6,7 +6,941 @@ output:
     html_document:
         toc: TRUE
         toc_float: TRUE
+header-includes:
+  - \usepackage{caption}
+  - \captionsetup{font=small}
+always_allow_html: true
 ---
 
-```{r child="../04_final_report/04_final_report.Rmd"}
+```{r, include=FALSE}
+knitr::opts_chunk$set(fig.pos = "H", warning=F)
 ```
+
+```{r, include=FALSE}
+# Libraries for interaction
+library(plotly)
+library(widgetframe)
+```
+
+```{r, include=FALSE}
+# Load libraries
+library(kableExtra)
+library(tidyverse)
+library(ggcorrplot)
+library(mgcv)
+library(GGally)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(pdp)
+```
+
+```{r, include=FALSE}
+### DATA LOADING AND PRE-PROCESSING FROM EDA ###
+
+# Load data extracted from the NHL APIs (extraction done in separate file)
+goalies = read_csv("../data/nhl_goalies_data.csv")
+prospects = read_csv("../data/nhl_goalie_prospects_data.csv")
+
+# Convert the invalid double columns in the goalies data to integers and create some factors
+goalies = goalies |>
+  mutate(
+    across(
+      c(seasonId, playerId, height, weight, draftYear, draftRound, draftOverall, assists, 
+        gamesPlayed, gamesStarted, goals, goalsAgainst, losses, otLosses, penaltyMinutes,
+        points, saves, shotsAgainst, shutouts, ties, timeOnIce, wins),
+      as.integer
+    ),
+    across(
+      c(birthCountryCode, isInHallOfFameYn, catches),
+      as.factor
+    )
+  )
+
+# Convert the invalid double columns in the prospects data to integers and create some factors
+prospects = prospects |>
+  mutate(
+    across(
+      c(draftYear, height, weight, midtermRank, finalRank),
+      as.integer
+    ),
+    across(
+      c(positionCode, catches, birthCountryCode),
+      as.factor
+    )
+  )
+
+# Create column for checking whether a goalie was drafted or not
+goalies = goalies |>
+  mutate(
+    drafted = !is.na(draftYear)
+  )
+
+# Create column for goalie age as of the beginning of the season (i.e. September 15th as per NHL Hockey Operations Guidelines)
+goalies = goalies |>
+  separate(seasonId, into = c("seasonStartYear", "seasonEndYear"), sep = 4,
+           convert = T, remove = F) |>
+  mutate(
+    ageAtSeasonStart = as.integer(
+      interval(birthDate, date(paste0(seasonStartYear, "-09-15"))) / years()
+    )
+  )
+
+# Get the average goalie height minus 2 inches for every season
+undersize_heights_per_season = goalies |>
+  group_by(seasonId) |>
+  summarize(
+    undersize_threshold = mean(height) - 2
+  ) |>
+  ungroup()
+
+# Create column classifying a goalie as undersized or not (i.e. <= 2" below average)
+goalies = goalies |>
+  left_join(undersize_heights_per_season, by = "seasonId") |>
+  mutate(
+    undersized = height <= undersize_threshold
+  )
+
+# Create column for prospect age as of the start of the next season (i.e. September 15th as per NHL Hockey Operations Guidelines)
+prospects = prospects |>
+  mutate(
+    draftYearAge = as.integer(
+      interval(birthDate, date(paste0(draftYear, "-09-15"))) / years()
+    )
+  )
+
+# Find emergency situation goalies
+emergency_goalies = goalies |>
+  filter (fullName %in% c("Shawn Hunwick", "Jorge Alves", "Jett Alexander",
+                          "Thomas Hodges", "Matthew Berlin", "Scott Foster"))
+
+# Remove emergency goalies from data
+goalies = goalies |>
+  anti_join(emergency_goalies, by = "playerId")
+
+# Get established goalies
+established_goalies = goalies |>
+  filter(gamesPlayed >= 25 | (gamesPlayed >= 22 & seasonStartYear == 2024))
+```
+
+```{r, include=FALSE}
+### PLOT DATA FROM PRELIMINARY REPORT ###
+
+# Summary stats for goalie heights by season
+goalie_heights_per_season = goalies |>
+  group_by(seasonStartYear, seasonEndYear) |>
+  summarize(
+    n = n(),
+    min_height = min(height),
+    mean_height = mean(height),
+    median_height = median(height),
+    max_height = max(height)
+  ) |>
+  ungroup() |>
+  arrange(seasonStartYear)
+
+# Top 5 NHL goalie producing countries in each season
+goalie_counts_by_country_and_season = goalies |>
+  group_by(seasonStartYear, seasonEndYear, birthCountryCode) |>
+  summarize(n = n(), .groups = "drop_last") |>
+  slice_max(n, n = 5, with_ties = F) |>
+  ungroup() |>
+  arrange(seasonStartYear, -n)
+
+# Summary stats for goalie heights by season and country
+goalie_heights_per_season_country = goalies |>
+  filter(birthCountryCode %in% c("CAN", "USA", "SWE", "FIN")) |>
+  group_by(seasonStartYear, seasonEndYear, birthCountryCode) |>
+  summarize(
+    n = n(),
+    min_height = min(height),
+    mean_height = mean(height),
+    median_height = median(height),
+    max_height = max(height),
+    .groups = "drop"
+  ) |>
+  ungroup() |>
+  arrange(birthCountryCode, seasonStartYear)
+
+# Summary stats of prospect heights by draft year
+prospect_heights_per_season = prospects |>
+  group_by(draftYear) |>
+  summarize(
+    n = n(),
+    min_height = min(height),
+    mean_height = mean(height),
+    median_height = median(height),
+    max_height = max(height)
+  ) |>
+  ungroup() |>
+  arrange(draftYear)
+
+# Summary stats of prospects height by draft year and country
+prospect_heights_per_season_and_nation = prospects |>
+  mutate(
+    nation = as.factor(ifelse(international, "International", "North American"))
+  ) |>
+  group_by(draftYear, nation) |>
+  summarize(
+    n = n(),
+    min_height = min(height),
+    mean_height = mean(height),
+    median_height = median(height),
+    max_height = max(height),
+    .groups = "drop"
+  ) |>
+  ungroup() |>
+  arrange(nation, draftYear)
+
+# Mean SV% and GAA across each season
+league_stats_by_season = goalies |>
+  group_by(seasonStartYear, seasonEndYear) |>
+  summarize(
+    mean_savePct = sum(saves) / sum(shotsAgainst),
+    mean_goalsAgainstAverage = (sum(goalsAgainst) * 60 * 60) / sum(timeOnIce),  # notice secs to mins conversion
+    .groups = "drop"
+  ) |>
+  ungroup() |>
+  arrange(seasonStartYear)
+
+# Mean SV% and GAA across each season for by undersized status
+established_league_stats_by_season_undersized = goalies |>
+  group_by(seasonStartYear, seasonEndYear, undersized) |>
+  summarize(
+    mean_savePct = sum(saves) / sum(shotsAgainst),
+    mean_goalsAgainstAverage = (sum(goalsAgainst) * 60 * 60) / sum(timeOnIce),  # notice secs to mins conversion
+    mean_win_percentage = sum(wins) / sum(gamesPlayed),
+    .groups = "drop"
+  ) |>
+  ungroup() |>
+  arrange(seasonStartYear, undersized)
+
+```
+
+```{r, include=FALSE}
+### DATA LOADING AND PRE-PROCESSING FROM MODELLING ###
+
+# Load NHL team standings data (extracted in separate file)
+teams = read_csv("../data/nhl_teams_data.csv")
+
+# Convert the invalid double columns in the teams data to integers and create some factors
+teams = teams |>
+  mutate(
+    across(
+      c(seasonId, blockedShotAttemptsAgainst, dZoneGiveawaysAgainst),
+      as.integer
+    ),
+    across(
+      c(teamAbbrev),
+      as.factor
+    )
+  )
+
+# Limit each goalies team to be the team they finished the season with
+goalies = goalies |>
+  mutate(
+    teamAbbrev = as.factor(substr(teamAbbrevs, nchar(teamAbbrevs) - 2, nchar(teamAbbrevs))) # take last 3 chars
+  )
+
+# Normalize team stats to be per 60 minutes played for comparison
+teams = teams |>
+  mutate(
+    teamXGoalsAgainstPer60 = (xGoalsAgainst / iceTime) * 3600,
+    teamBlockedShotsPer60 = (blockedShotAttemptsAgainst / iceTime) * 3600,
+    teamDZoneGiveawaysPer60 = (dZoneGiveawaysAgainst / iceTime) * 3600
+  ) |>
+  rename(teamIceTime = iceTime) |>
+  select(!c(xGoalsAgainst, blockedShotAttemptsAgainst, dZoneGiveawaysAgainst))
+
+# Denormalize the goalies data to include team stats of the last team they played on in each season (starting in 2008)
+# NOTE: THIS OVERWRITES GOALIES TO ONLY INCLUDE DATA >= 2008 WHEREAS GOALIES WAS >= 2000 BEFORE
+goalies = goalies |>
+  inner_join(teams, by = c("seasonId", "teamAbbrev")) |>
+  relocate(seasonId, playerId, teamAbbrev)
+
+# Get established goalies again (since goalies has changed)
+established_goalies = goalies |>
+  filter(gamesPlayed >= 25 | (gamesPlayed >= 22 & seasonStartYear == 2024))
+```
+
+```{r, include=FALSE}
+### MODELS ###
+
+model_data = established_goalies |>
+  rename(
+    GAA = goalsAgainstAverage,
+    Season = seasonStartYear,
+    Height = height,
+    Weight = weight,
+    Age = ageAtSeasonStart,
+    Team_Expected_Goals_Against_Per_60 = teamXGoalsAgainstPer60,
+    Team_Blocked_Shots_Per_60 = teamBlockedShotsPer60,
+    Team_DZone_Giveaways_Per_60 = teamDZoneGiveawaysPer60, 
+    Birth_Country = birthCountryCode,
+    Team = teamAbbrev,
+    Catches = catches
+  )
+
+model_data2 = established_goalies |>
+  rename(
+    GAA = goalsAgainstAverage,
+    Season = seasonStartYear,
+    Height = height,
+    Weight = weight,
+    Age = ageAtSeasonStart,
+    `Team Expected Goals Against Per 60` = teamXGoalsAgainstPer60,
+    `Team Blocked Shots Per 60` = teamBlockedShotsPer60,
+    `Team DZone Giveaways Per 60` = teamDZoneGiveawaysPer60, 
+    `Birth Country` = birthCountryCode,
+    Team = teamAbbrev,
+    Catches = catches
+  )
+
+# Fit a GAM for SV% using height
+savePct_gam = gam(
+  savePct ~ 
+    s(Season, bs="cr", k=10) 
+  + s(Height, bs="cr", k=10) 
+  + s(Weight, bs="cr", k=20) 
+  + s(Age, bs="cr", k=20)
+  + s(Team_Expected_Goals_Against_Per_60, bs="cr", k=20) 
+  + s(Team_Blocked_Shots_Per_60, bs="cr", k=20) 
+  + s(Team_DZone_Giveaways_Per_60, bs="cr", k=20)
+  + s(Birth_Country, bs="re") 
+  + s(Team, bs="re") 
+  + Catches, 
+  data = model_data,
+  method = "ML",
+  family = betar(link = "logit")
+)
+
+# Fit decision tree model for SV% using height
+savePct_dt = rpart(
+  savePct ~ Season + Height + Weight + Age + `Team Expected Goals Against Per 60` + `Team Blocked Shots Per 60` 
+          + `Team DZone Giveaways Per 60` + `Birth Country` + Team + Catches,
+  data = model_data2,
+  method = "anova", 
+  control = rpart.control(cp = 0.01)
+)
+
+# Fit RF model for SV% using height
+set.seed(42)
+savePct_rf = randomForest(
+  savePct ~ Season + Height + Weight + Age + `Team_Expected_Goals_Against_Per_60` + `Team_Blocked_Shots_Per_60` 
+          + `Team_DZone_Giveaways_Per_60` + `Birth_Country` + Team + Catches,
+  data = model_data,
+  importance = TRUE)
+
+# Fit a GAM for GAA using height
+gaa_gam = gam(
+  GAA ~ 
+    s(Season, bs="cr", k=10) 
+  + s(Height, bs="cr", k=10) 
+  + s(Weight, bs="cr", k=20) 
+  + s(Age, bs="cr", k=20)
+  + s(Team_Expected_Goals_Against_Per_60, bs="cr", k=20) 
+  + s(Team_Blocked_Shots_Per_60, bs="cr", k=20) 
+  + s(Team_DZone_Giveaways_Per_60, bs="cr", k=20)
+  + s(Birth_Country, bs="re") 
+  + s(Team, bs="re") 
+  + Catches,
+  data = model_data,
+  method = "ML",
+  family = Gamma(link = "log")
+)
+
+# Fit decision tree model for GAA using height
+gaa_dt = rpart(
+  GAA ~ Season + Height + Weight + Age + `Team Expected Goals Against Per 60` + `Team Blocked Shots Per 60` 
+          + `Team DZone Giveaways Per 60` + `Birth Country` + Team + Catches,
+  data = model_data2,
+  method = "anova", 
+  control = rpart.control(cp = 0.01)
+)
+
+# Fit RF model for GAA using height
+set.seed(42)
+gaa_rf = randomForest(
+  GAA ~ Season + Height + Weight + Age + `Team_Expected_Goals_Against_Per_60` + `Team_Blocked_Shots_Per_60` 
+          + `Team_DZone_Giveaways_Per_60` + `Birth_Country` + Team + Catches,
+  data = model_data,
+  importance = TRUE)
+```
+
+
+## Introduction
+
+In the fast-paced and ever-changing landscape of the National Hockey League (NHL), goaltenders play a critical role in determining the outcome of games. Their ability to stop players from scoring using speed, agility, and positioning makes them one of the most scrutinized positions in professional hockey. Over the years, there has been ongoing debate regarding the ideal physical attributes of a successful goaltender, particularly when discussing height. While some argue that taller goalies have an advantage due to their greater net coverage, others suggest that shorter goalies may compensate with quicker reflexes and mobility.
+
+This study examines the relationship between a goaltender’s height and their success in the NHL. Specifically, we analyze whether there has been a historical trend in goalie height over the past 25 years and whether this trend varies by country of origin. Additionally, we explore whether taller goalies exhibit better statistical performance as measured by save percentage (SV%) and goals against average (GAA) compared to their shorter counterparts. Answering these questions should provide insights into the evolving profile of NHL goaltenders and contribute to the broader discussion on goalie development and scouting strategies.
+
+The data used in this study is sourced from publicly available NHL statistics, including goalie biographies and performance metrics from all seasons since 2000. This dataset has 2256 observations across 34 variables, featuring personal details such as the goaltender's name, height, birth country, and what season they played in. Performance indicators like number of games played, number of shots faced, save percentage, and goals against average are also included per season. Additionally, we will assess a separate dataset that features the heights of officially ranked NHL goalie prospects from each draft year since 2008. This dataset includes 869 observations across 15 variables with each prospect identified as either North American or international. Finally, we will also use a team-oriented dataset to control for external factors that may impact goaltender performance. This dataset has 490 rows across 6 variables, including expected goals against, number of blocked shots, and number of defensive zone giveaways for each team and season combination since 2008. Through these datasets, we aim to provide a data-driven approach to analyzing the impact of height on NHL goaltending performance.
+
+## Methods
+
+The goalie and prospect data for this study was mainly collected from a publicly available (but undocumented) NHL API, using two primary base URLs: <https://api.nhle.com/stats/rest/> and <https://api-web.nhle.com/>. Since no official documentation exists, queries were structured based on an unofficial API reference guide from GitHub (<https://github.com/Zmalski/NHL-API-Reference>) and cross-referenced with the official NHL website (<https://www.nhl.com/stats/goalies>) to ensure accuracy. Two primary datasets were obtained: goalie season data, covering every NHL season (i.e. regular season and playoffs combined) since 2000, and prospect data, covering pre-NHL Entry Draft rankings for every year since 2008. The goalie season data was retrieved through a series of separate API requests for summary statistics and biographies, which were then merged using unique player and season identifiers. Similarly, prospect data was gathered through separate requests for North American and international goalies and aggregated into a single dataset. An additional column indicating prospect origin (i.e. North American or not) was added during the merging process. All data was exported to CSV files for further processing.
+
+In contrast to the goalie and prospect data, team defense metrics were collected from <https://moneypuck.com/data.htm>, a third-party website that provides advanced NHL analytics. End-of-season team statistics were downloaded as a series of CSV files — one for each NHL team and season since 2008. These files were combined into a single dataset representing team-season level data. Column names and metadata that had corresponding but syntactically different entries in the goalie dataset were standardized to ensure consistency and facilitate proper merging later.
+
+After importing the CSV files into a separate notebook, the datasets were inspected and cleaned to ensure consistency and accuracy. Data dimensions, headers, and footers were checked, column types were corrected where necessary, and missing values in key variables were assessed. In particular, discrete numeric variables had to be manually converted to integer types and certain string columns such as birth country were converted to factors for easier analysis. Special attention was given to height values, which were validated using the NHL website to confirm accuracy. Emergency backup goalies were identified and removed, as their inclusion would not provide meaningful insights into trends among regular NHL goaltenders. Additionally, missing save percentage values were discovered but left as is since this indicates a goalie who played but did not face any shots. The final rankings for 2025 prospects were also missing, but this was expected since they had not yet been released when data extraction occurred.
+
+Several new variables were created to facilitate analysis and provide easier data validation. Age variables were derived from the birth date of goalies/prospects for both datasets. Additionally, a binary "undersized" variable was introduced to classify goalies at least two inches shorter than the league average for their respective seasons. A subset of "established" goalies was also created by filtering for goalies who had appeared in at least 25 games in a given season (or 22 for the 2024-2025 season as of March 13th). This threshold follows the NHL website’s default threshold for displaying goalie statistics and is useful for ensuring trends are true for goalies who get consistent playing time rather than one-time call-ups. Team statistics such as expected goals against, blocked shots, and defensive zone giveaways were standardized to rates per 60 minutes (rather than absolute season totals) to enable meaningful comparisons across teams and seasons.
+
+Exploratory data analysis (EDA) was conducted using a range of visualizations and statistical summaries. Line charts were created to view trends in average goalie height over time, both league-wide and by birth country. Similar visualizations were produced for prospects, with goalies grouped by North American or international status. Histograms and table summaries were used to examine the distributions of height, SV%, GAA, and team statistics. Additionally, bar charts were generated to show the number of NHL goalies by birth country for each season. To assess the relationship between height and performance, league-wide SV% and GAA were plotted over time, both overall and with goalies grouped by undersized status. Correlations between individual attributes, performance metrics, and team statistics were assessed visually and numerically with scatterplots and correlation matrices. These tools provided a structured approach to evaluating trends in NHL goaltender height and performance over time.
+
+Modelling and statistical analysis were conducted in R using the `mgcv`, `randomForest`, `rpart`, and `pdp` packages. Two sets of models were built: one to analyze the relationship between goalie height and GAA, and another for SV%. These two response variables differ in distributional characteristics: GAA is a positive, continuous, typically right-skewed variable, while SV% is a proportion bounded between 0 and 1. Accordingly, generalized additive models (GAMs) were used for both responses with appropriate distributional assumptions: a Gamma distribution with a log link for GAA, and a Beta distribution with a logit link for SV%.
+
+GAMs were selected for their flexibility in capturing non-linear relationships between predictors and the response. Smooth terms were applied to numeric variables that could plausibly affect performance. These included individual characteristics such as height, weight, and age, as well as team-level predictors like expected goals against per 60 minutes, blocked shots per 60 minutes, and defensive zone giveaways per 60 minutes. Categorical variables, including a goaltender's team and birth country, were incorporated as random effects to account for group-level variation. A binary parametric term for the goaltender’s catching hand was also included for completeness. Model summaries were examined with a focus on the effective degrees of freedom for smooth terms and the percentage of deviance explained. The effective degrees of freedom indicate the complexity of the fitted smooth (i.e., the number of basis functions used to approximate the relationship), while deviance explained serves as an analogue to R² in non-Gaussian models. It is important to note that model performance and predictive accuracy were not the primary focus of this analysis; no train/test split or RMSE calculations were conducted. Instead, the emphasis was placed on interpretability, with the primary objective being to understand whether goalie height meaningfully impacts performance.
+
+To further compare interpretability, each GAM was matched with a pair of tree-based models: a regression decision tree (`rpart`) and a random forest (`randomForest`). Decision trees provide interpretable, rule-based splits, which can reveal height thresholds associated with changes in SV% or GAA. Random forests, which are ensembles of decision trees built on bootstrapped samples and random feature subsets, were used to assess variable importance and capture complex interactions. Partial dependence plots (PDPs) were used to visualize the marginal effect of height on the response in tree-based models, enabling comparison with the smooth height effects from the GAMs. This multi-model approach allowed for a robust assessment of whether height influences goalie performance, offering insights into both statistical significance and practical effect size across modelling frameworks.
+
+## Results
+
+### Variable Overview
+
+Over the past 25 years, NHL goalies have varied in height from 5'7" (67 inches) to 6'7" (79 inches) with an average height of about 6'2" (74 inches), as seen in Table 1. Similarly, Table 3 shows that these numbers are comparable for NHL goalie prospects. This indicates a consistent preference for taller goalies in the NHL. Save percentage and goals against average show significant variation among all goalies, ranging from 0.500 to 1.000 and 0.00 to 27.23, respectively. This is largely due to inconsistencies in the number of games played for goalies. When focusing only on established goaltenders, however, SV% and GAA fall within a tighter range of .870 to 0.939 and 1.66 to 4.23, respectively, as shown in Table 2. This reflects greater stability in performance metrics for goalies with more playing time.
+
+```{r, echo=FALSE}
+# Statistical summary of key variables from goalie
+goalies |>
+  select(height, savePct, goalsAgainstAverage, gamesPlayed) |>
+  rename(
+    `Height (in)` = height,
+    `Games Played` = gamesPlayed,
+    `SV%` = savePct,
+    `GAA` = goalsAgainstAverage
+  ) |>
+  pivot_longer(cols = c(`Height (in)`, `Games Played`, `SV%`, `GAA`), names_to = "Variable", values_to = "val") |>
+  group_by(Variable) |>
+  summarize(
+    `Min.` = min(val, na.rm = T),
+    `1st Qu.` = quantile(val, probs = 0.25, na.rm = T),
+    `Mean` = mean(val, na.rm = T),
+    `Median` = quantile(val, probs = 0.5, na.rm = T),
+    `3rd Qu.` = quantile(val, probs = 0.75, na.rm = T),
+    `Max.` = max(val, na.rm = T)
+  ) |>
+  arrange(match(Variable, c("Height (in)", "Games Played", "SV%", "GAA"))) |>
+  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average of NHL goalies in every season since 2000.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE}
+# Statistical summary of key variables for established goalies
+established_goalies |>
+  select(height, savePct, goalsAgainstAverage, gamesPlayed) |>
+  rename(
+    `Height (in)` = height,
+    `Games Played` = gamesPlayed,
+    `SV%` = savePct,
+    `GAA` = goalsAgainstAverage
+  ) |>
+  pivot_longer(cols = c(`Height (in)`, `Games Played`, `SV%`, `GAA`), names_to = "Variable", values_to = "val") |>
+  group_by(Variable) |>
+  summarize(
+    `Min.` = min(val, na.rm = T),
+    `1st Qu.` = quantile(val, probs = 0.25, na.rm = T),
+    `Mean` = mean(val, na.rm = T),
+    `Median` = quantile(val, probs = 0.5, na.rm = T),
+    `3rd Qu.` = quantile(val, probs = 0.75, na.rm = T),
+    `Max.` = max(val, na.rm = T)
+  ) |>
+  arrange(match(Variable, c("Height (in)", "Games Played", "SV%", "GAA"))) |>
+  kable(digits = 3, caption = "Summary statistics for height, number of games played, save percentage, and goals against average of established NHL goalies in every season since 2000.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE}
+# Statistical summary of heights for NHL goalie prospects
+prospects |>
+  summarize(
+    `Min.` = min(height, na.rm = T),
+    `1st Qu.` = quantile(height, probs = 0.25, na.rm = T),
+    `Mean` = mean(height, na.rm = T),
+    `Median` = quantile(height, probs = 0.5, na.rm = T),
+    `3rd Qu.` = quantile(height, probs = 0.75, na.rm = T),
+    `Max.` = max(height, na.rm = T)
+  ) |>
+  mutate(
+    Variable = "Height (in)"
+  ) |>
+  relocate(Variable) |>
+  kable(digits = 2, caption = "Summary statistics for the height of ranked NHL goalie prospects in every draft year since 2008.") |>
+  kable_styling(full_width = FALSE)
+```
+
+In terms of where NHL goalies have been born, Figure 1 shows how the distribution of NHL goaltenders by birth country has changed over the past 20 years. The figure illustrates how North America — particularly, Canada — has been the biggest producer of NHL goaltenders during this period. It appears, however, that the number of Canadian goalies in the NHL has gradually decreased while the number of international goalies has increased.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A bar chart displaying the top 5 most frequent birth countries of NHL goalies by season."}
+# Plot the top 5 goalie countries
+plot = goalie_counts_by_country_and_season |>
+  filter(seasonStartYear >= 2005) |>
+  mutate(birthCountryCode = reorder(birthCountryCode, -n)) |>
+  ggplot(aes(x = seasonStartYear, y = n, fill = birthCountryCode)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.8) +
+  labs(
+    title = "Top 5 Birth Countries of NHL Goalies by Season",
+    x = "Season",
+    y = "Count",
+    legend = "Country"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  ) +
+  scale_fill_brewer("Country", palette = "Set1") +
+  theme_minimal()
+
+ggplotly(plot)
+```
+
+Figure 2 summarizes the relationships between goalie height, season, GAA, and SV%. As expected, GAA and SV% are strongly negatively correlated (r = -0.84), since a lower GAA typically coincides with a higher save percentage. Height shows only a very weak positive correlation with SV% (r = 0.03) and a near-zero correlation with GAA (r = –0.01), suggesting that there is little to no linear relationship between height and basic performance metrics. Interestingly, season is moderately correlated with GAA (r = 0.21), SV% (r = -0.20), and height (r = 0.26), indicating that goaltending performance and height has changed over time.
+
+```{r, echo=FALSE, fig.height=3.75, fig.align="center", fig.cap="A matrix displaying the Pearson correlation coefficients between height, time, GAA, and SV% of established NHL goalies since the 2000-2001 season."}
+# Plot correlation between height, time, and performance
+plot = established_goalies |>
+  select(height, seasonStartYear, goalsAgainstAverage, savePct) |>
+  rename(
+    Height = height,
+    `Season (Time)` = seasonStartYear,
+    GAA = goalsAgainstAverage,
+    `SV%` = savePct
+  ) |>
+  cor() |>
+  ggcorrplot(lab = T, title = "Correlation Between Height, Time, and Performance Metrics\nof Established NHL Goalies Since 2000")
+
+ggplotly(plot)
+```
+
+### Trends in Height
+
+Our analysis reveals a clear trend in NHL goaltender height over time. As shown in Figure 3, the average height of NHL goalies has increased steadily since 2000, rising from approximately 6’0.5” (72.5 inches) to roughly 6’3” (75 inches) in recent seasons. The minimum height of NHL goaltenders has also increased from 5'7" (67 inches) in 2000, to 5'10" (70 inches) in 2005, and finally to 5'11" (71 inches) in 2019, as demonstrated by Figure 4.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season."}
+# Mean height of goalies per season
+plot = goalie_heights_per_season |>
+  rename(meanHeight = mean_height) |>
+  ggplot(aes(x = seasonStartYear, y = meanHeight)) +
+  geom_line(color="lightblue") +
+  geom_point(color="#000099") +
+  theme_minimal() +
+  labs(
+    title = "Average Height of NHL Goalies by Season",
+    x = "Season",
+    y = "Average Height"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  ) +
+  scale_y_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  )
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the minimum height of NHL goalies by season."}
+# Min height of goalies per season
+plot = goalie_heights_per_season |>
+  mutate(minHeight = min_height) |>
+  ggplot(aes(x = seasonStartYear, y = minHeight)) +
+  geom_line(color="lightblue") +
+  geom_point(color="#000099") +
+  theme_minimal() +
+  labs(
+    title = "Minimum Height of NHL Goalies by Season",
+    x = "Season",
+    y = "Minimum Height"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  ) +
+  scale_y_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  )
+
+ggplotly(plot)
+```
+
+The upward trend in NHL goalie height appears consistent across most birth countries, though Figure 5 highlights subtle differences across the four biggest NHL goaltender-producing countries (i.e. Canada, the United States, Finland, and Sweden). Compared to goaltenders from Finland and Sweden, goalies from Canada and the United States show a relatively more consistent increase in average height. While Canada and Finland's averages are currently around 6'3" (75 inches), the average is slightly lower for the United States at 6'2.5" (74.5 inches) and considerably higher for Sweden at around 6'4.5" (76.5 inches). Among draft-eligible prospects, Figure 6 shows a less significant pattern. Similar to NHL goalies, the average height of North American prospects has stayed close to 6'2" (74 inches) with relatively similar growth trends as the overall population. International goalies, on the other hand, have varied between 6'1" (73 inches) and 6'3" (75 inches) over the last 14 years. It is worth noting, however, that the number of ranked international goalies per year has been consistently less than the North American class, which could explain the extra variance.
+
+```{r, echo=FALSE, fig.height=3.5, fig.align="center", fig.cap="A line chart displaying the average height of NHL goalies by season and birth country for the top 4 goalie-producing countries."}
+# Mean height of goalies per season and birth country
+plot = goalie_heights_per_season_country |>
+  rename(meanHeight = mean_height) |>
+  ggplot(aes(x = seasonStartYear, y = meanHeight, colour = birthCountryCode)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~birthCountryCode) +
+  theme_minimal() +
+  labs(
+    title = "Average Height of NHL Goalies by Season and Birth Country",
+    x = "Season",
+    y = "Average Height",
+    colour = "Country"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 6),
+    labels = paste0("'", str_pad(seq(0, 24, 6), 2, pad = "0"))
+  ) +
+  scale_y_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  )
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average height of ranked NHL goalie prospects by draft year and whether or not they were born in North America."}
+# Mean height of prospects per draft year and international status
+plot = prospect_heights_per_season_and_nation |>
+  rename(meanHeight = mean_height) |>
+  ggplot(aes(x = draftYear, y = meanHeight, colour = nation)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(
+    title = "Average Height of Ranked NHL Goalie Prospects\nby Draft Year and International Status",
+    x = "Draft Year",
+    y = "Average Height",
+    colour = "International Status"
+  ) +
+  scale_x_continuous(breaks = seq(2008, 2025, 2)) +
+  scale_y_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  )
+
+ggplotly(plot)
+```
+
+### Trends in Performance
+
+From a statistical perspective, NHL goaltending performance has decreased over the past decade. Figure 7 demonstrates that the league-wide average save percentage has trended downwards since the 2014-15 season, starting at 0.915 and finishing at 0.901. As expected, the league-wide goals against average increased over the same period from 2.50 in 2014-15 to 2.80 in 2024-25, while peaking at 2.96 in 2022-23. This decrease (shown in Figure 8) is likely driven by a newer generation of offensive talent who have learned increasingly dynamic and creative scoring techniques that goaltenders have not yet fully adapted to — though this remains speculative. Comparable numbers and trends are prevalent when strictly analyzing established goalies. This makes sense given that approximately 85% of the shots against and 84% of the goals against in the past 25 years have been on established goalies.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season."}
+# Mean league wide save percentage by season
+plot = league_stats_by_season |>
+  rename(meanSavePct = mean_savePct) |>
+  ggplot(aes(x = seasonStartYear, y = meanSavePct)) +
+  geom_line(color="lightblue") +
+  geom_point(color="#000099") +
+  theme_minimal() +
+  labs(
+    title = "Average League-Wide Save Percentage in the NHL by Season",
+    x = "Season",
+    y = "Average Save %"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  )
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season."}
+# Mean league wide GAA by season
+plot = league_stats_by_season |>
+  rename(meanGAA = mean_goalsAgainstAverage) |>
+  ggplot(aes(x = seasonStartYear, y = meanGAA)) +
+  geom_line(color="lightblue") +
+  geom_point(color="#000099") +
+  theme_minimal() +
+  labs(
+    title = "League-Wide Goals Against Average in the NHL by Season",
+    x = "Season",
+    y = "Average GAA"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  )
+
+ggplotly(plot)
+```
+
+### Trends in Height and Performance
+
+Visually, there appears to be little difference in performance between shorter and taller goalies. Figures 9 and 10 illustrate this by comparing the average SV% and GAA for both groups over the past 25 years. As shown in Figure 9, save percentages have remained relatively similar across most seasons, regardless of height. Likewise, Figure 10 reveals a comparable trend in GAA, suggesting that height does not play a significant role in these performance metrics.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the average save percentage across all NHL goalies in each season grouped by whether the goalies are tall or short."}
+# Mean league wide save percentage of each season grouped by undersize status
+plot = established_league_stats_by_season_undersized |>
+  rename(meanSavePct = mean_savePct) |>
+  ggplot(aes(x = seasonStartYear, y = meanSavePct, color = undersized)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(
+    title = "Average League-Wide Save Percentage by Season\nBetween Short and Tall NHL Goalies",
+    x = "Season",
+    y = "Average Save %",
+    color = "Undersized?"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="A line chart displaying the goals against average across all NHL goalies in each season grouped by whether the goalies are tall or short"}
+# Mean league wide GAA of each season grouped by undersize status
+plot = established_league_stats_by_season_undersized |>
+  rename(meanGAA = mean_goalsAgainstAverage) |>
+  ggplot(aes(x = seasonStartYear, y = meanGAA, color = undersized)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(
+    title = "Average League-Wide Goals Against Average by\nSeason Between Short and Tall NHL Goalies",
+    x = "Season",
+    y = "Average GAA",
+    color = "Undersized?"
+  ) +
+  scale_x_continuous(
+    breaks = seq(2000, 2024, 2),
+    labels = paste(str_pad(seq(0, 24, 2), 2, pad = "0"), str_pad(seq(1, 25, 2), 2, pad = "0"), sep = "-")
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplotly(plot)
+```
+
+### GAA Models
+
+The GAM for GAA, fit with a Gamma distribution and log link, explained approximately 44.1% of deviance with an adjusted R² of 0.414. The model coefficients are summarized in Table 4 and Table 5 below. Among the smooth terms included, team expected goals against per 60 minutes was by far the strongest predictor of GAA (p-value < 2e-16). Meanwhile height was not statistically significant (p-value = 0.398). The effective degrees of freedom (EDF) for the smooth height term was 1.00, indicating a nearly linear and weak effect. Visually inspecting the smooth term in Figure 11 suggests a slight negative relationship between height and GAA — meaning taller goalies tended to allow fewer goals — but the effect size was minimal and very uncertain.
+
+```{r, echo=FALSE}
+# Get smooth terms summary for GAA GAM
+smooth_terms = summary(gaa_gam)$s.table |>
+  as.data.frame() %>%
+  tibble::rownames_to_column("Term") |>
+  mutate(Significance = case_when(
+    `p-value` < 0.001 ~ "***",
+    `p-value` < 0.01  ~ "**",
+    `p-value` < 0.05  ~ "*",
+    `p-value` < 0.1   ~ ".",
+    TRUE            ~ ""
+  ))
+smooth_terms$Term = c("Season (Time)", "Height", "Weight", "Age", "Team Expected Goals Against Per 60", "Team Blocked Shots Per 60",
+                      "Team DZone Giveaways Per 60", "Birth Country (RE)", "Team (RE)")
+
+smooth_terms |>
+  kable(digits = 3, caption = "Summary of Smooth Terms and Random Effects in GAM for GAA.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE}
+# Get parametric terms summary for GAA GAM
+param_terms = summary(gaa_gam)$p.table |>
+  as.data.frame() |>
+  tibble::rownames_to_column("Term") |>
+  rename(
+    `p-value` = `Pr(>|t|)`
+  ) |>
+  mutate(Significance = case_when(
+    `p-value` < 0.001 ~ "***",
+    `p-value` < 0.01  ~ "**",
+    `p-value` < 0.05  ~ "*",
+    `p-value` < 0.1   ~ ".",
+    TRUE            ~ ""
+  ))
+param_terms$Term = c("Intercept", "CatchesR")
+
+param_terms |>
+  kable(digits = 3, caption = "Summary of Parametric Terms in GAM for GAA.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE, fig.height=4, fig.align="center", fig.cap="Estimated smooth effect of height on GAA and their corresponding 95% confidence intervals from the GAM with a Gamma distribution and log link."}
+plot(gaa_gam, select = 2, shade = TRUE, rug = TRUE,
+     main = "Smooth Effect of Height on GAA",
+     ylab = "Effect on log (GAA)",
+     xlab = "Height (inches)")
+```
+
+The regression tree model for GAA did not include height among its splitting variables, as shown in Figure 12. Instead, it primarily relied on team identity, birth country, and expected goals against per 60, suggesting that contextual team factors were more predictive of GAA than physical attributes like height. This aligns with the GAM findings, where team-level defensive metrics dominated model significance.
+
+```{r, echo=FALSE, fig.height=5, fig.align="center", fig.cap="Regression tree predicting GAA using individual and team-level predictors."}
+rpart.plot(gaa_dt, main = "Regression Tree for GAA",
+           cex=0.6, faclen=1, split.cex=1, branch=0, compress=FALSE)
+```
+
+Similarly, the random forest model explained 35.5% of variance, which was notably lower than the GAM. As displayed in Figure 13, variable importance rankings indicated that height was relatively unimportant, with only a 7.1% increase in mean squared error when permuted. This ranks height behind factors such as team, season, and birth country. Nonetheless, the partial dependence plot for height (shown in Figure 14) shows a weak trend consistent with the GAM: shorter goalies exhibited slightly higher GAA, though the effect was marginal and non-linear.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Variable importance plot from the random forest model predicting GAA."}
+# Extract variable importance
+imp = importance(gaa_rf, type = 1)  # type = 1 = %IncMSE
+imp_df = data.frame(
+  Variable = rownames(imp),
+  Importance = imp[, 1]
+)
+imp_df$Variable = c("Season (Time)", "Height", "Weight", "Age", "Team Expected Goals Against Per 60", "Team Blocked Shots Per 60",
+                      "Team DZone Giveaways Per 60", "Birth Country", "Team", "Catches")
+
+# Sort by importance and plot using ggplot2
+plot = imp_df[order(imp_df$Importance, decreasing = TRUE), ] |>
+  mutate(Variable = reorder(Variable, Importance)) |>
+  ggplot(aes(x = Variable, y = Importance)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Variable Importance in Random\nForest Model for GAA",
+    x = "Predictor",
+    y = "% Increase in MSE"
+  ) +
+  theme_minimal()
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Partial dependence plot showing the marginal effect of height on GAA in the random forest model."}
+# Extract the effect of height in the SV% RF
+plot = partial(gaa_rf, pred.var = "Height", plot = FALSE) |>
+  ggplot(aes(x = Height, y = yhat)) +
+  geom_line(linewidth = 1, color = "steelblue") +
+  scale_x_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  ) +
+  labs(
+    title = "Partial Dependence of Height on GAA from\nRandom Forest Model",
+    x = "Height",
+    y = "Predicted GAA",
+  ) +
+  theme_minimal()
+
+ggplotly(plot)
+```
+
+### SV% Models
+
+The GAM for SV%, using a Beta distribution with a logit link, explained 25% of deviance with an adjusted R² of 0.215. The model coefficients are summarized in Table 6 and Table 7 below. As in the GAA model, team-level expected goals against per 60 minutes was one of the strongest predictors (p-value < 2e-16), while height was not statistically significant (p-value = 0.259). The smooth term for height had an EDF of 1.00, suggesting a weak and nearly linear relationship. As shown in Figure 15, the estimated smooth function showed a slight increase in SV% with height, but the effect size was small and not statistically meaningful.
+
+```{r, echo=FALSE}
+# Get smooth terms summary for SV% GAM
+smooth_terms = summary(savePct_gam)$s.table |>
+  as.data.frame() %>%
+  tibble::rownames_to_column("Term") |>
+  mutate(Significance = case_when(
+    `p-value` < 0.001 ~ "***",
+    `p-value` < 0.01  ~ "**",
+    `p-value` < 0.05  ~ "*",
+    `p-value` < 0.1   ~ ".",
+    TRUE            ~ ""
+  ))
+smooth_terms$Term = c("Season (Time)", "Height", "Weight", "Age", "Team Expected Goals Against Per 60", "Team Blocked Shots Per 60",
+                      "Team DZone Giveaways Per 60", "Birth Country (RE)", "Team (RE)")
+
+smooth_terms |>
+  kable(digits = 3, caption = "Summary of Smooth Terms and Random Effects in GAM for Save Percentage.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE}
+# Get parametric terms summary for SV% GAM
+param_terms = summary(savePct_gam)$p.table |>
+  as.data.frame() |>
+  tibble::rownames_to_column("Term") |>
+  rename(
+    Estimate = Estimate,
+    Std_Error = `Std. Error`,
+    z_value = `z value`,
+    p_value = `Pr(>|z|)`
+  ) |>
+  mutate(Significance = case_when(
+    p_value < 0.001 ~ "***",
+    p_value < 0.01  ~ "**",
+    p_value < 0.05  ~ "*",
+    p_value < 0.1   ~ ".",
+    TRUE            ~ ""
+  ))
+param_terms$Term = c("Intercept", "CatchesR")
+
+param_terms |>
+  kable(digits = 3, caption = "Summary of Parametric Terms in GAM for Save Percentage.") |>
+  kable_styling(full_width = FALSE)
+```
+
+```{r, echo=FALSE, fig.height=4, fig.align="center", fig.cap="Estimated smooth effect of height on SV% and their corresponding 95% confidence intervals from the GAM with a Beta distribution and logit link."}
+plot(savePct_gam, select = 2, shade = TRUE, rug = TRUE,
+     main = "Smooth Effect of Height on SV%",
+     ylab = "Effect on logit (SV%)",
+     xlab = "Height (inches)")
+```
+
+The fitted regression decision tree for SV% similarly did not use height in any of its splits, as shown in Figure 16. Instead, the most important variables were again team identity, birth country, and expected goals against per 60, reinforcing the pattern observed in the GAA models.
+
+```{r echo=FALSE, fig.height=5, fig.align="center", fig.cap="Regression tree predicting SV% using individual and team-level predictors."}
+rpart.plot(savePct_dt, main = "Regression Tree for SV%",
+           cex=0.6, faclen=1, split.cex=1, branch=0, compress=FALSE)
+```
+
+The random forest model for SV% explained only 17.0% of variance, performing worse than the GAM in terms of explanatory power. As displayed in Figure 17, variable importance scores placed height near the bottom of the predictor list, with only a 7.7% increase in mean squared error when permuted — well below other features like team, season, and birth country. The partial dependence plot for height (shown in Figure 18) demonstrates a subtle, positive trend: very short goalies tend to have slightly lower SV%, but this relationship is weak and potentially misleading.
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Variable importance plot from the random forest model predicting SV%."}
+# Extract variable importance
+imp = importance(savePct_rf, type = 1)  # type = 1 = %IncMSE
+imp_df = data.frame(
+  Variable = rownames(imp),
+  Importance = imp[, 1]
+)
+imp_df$Variable = c("Season (Time)", "Height", "Weight", "Age", "Team Expected Goals Against Per 60", "Team Blocked Shots Per 60",
+                      "Team DZone Giveaways Per 60", "Birth Country", "Team", "Catches")
+
+# Sort by importance and plot using ggplot2
+plot = imp_df[order(imp_df$Importance, decreasing = TRUE), ] |>
+  mutate(Variable = reorder(Variable, Importance)) |>
+  ggplot(aes(x = Variable, y = Importance)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Variable Importance in Random\nForest Model for SV%",
+    x = "Predictor",
+    y = "% Increase in MSE"
+  ) +
+  theme_minimal()
+
+ggplotly(plot)
+```
+
+```{r, echo=FALSE, fig.height=3, fig.align="center", fig.cap="Partial dependence plot showing the marginal effect of height on SV% in the random forest model."}
+# Extract the effect of height in the SV% RF
+plot = partial(savePct_rf, pred.var = "Height", plot = FALSE) |>
+  ggplot(aes(x = Height, y = yhat)) +
+  geom_line(size = 1, color = "steelblue") +
+  scale_x_continuous(
+    breaks = 60:83,
+    labels = c(paste0("5'", 0:11, '"'), paste0("6'", 0:11, '"'))
+  ) +
+  labs(
+    title = "Partial Dependence of Height on SV% from\nRandom Forest Model",
+    x = "Height",
+    y = "Predicted SV%",
+  ) +
+  theme_minimal()
+
+ggplotly(plot)
+```
+
+## Conclusions and Summary
+
+This analysis confirms that NHL goaltenders have become increasingly taller over the past 25 years, reinforcing the league’s apparent preference for taller goalies. This trend is consistent across most major goaltender-producing countries, with Sweden currently leading the way in average goaltender height. A similar, though more variable, pattern was observed in drafted goalie prospects, especially among international players.
+
+The demographic landscape of NHL goaltending has also shifted over time. While Canadian goalies once dominated the position, there has been a noticeable decline in their relative presence, coinciding with a rise in international goaltenders. This reflects a broader globalization of goalie development, with more countries now producing NHL-caliber talent.
+
+However, despite the league’s growing emphasis on taller goalies, the modelling results suggest that height alone is not a strong determinant of performance. Across both SV% and GAA, GAMs indicated that height had at most a weak, linear relationship with performance metrics — one that was not statistically significant in either model. Tree-based models reinforced this result, as height did not emerge as a key predictor in any decision paths or variable importance rankings. Instead, team context (e.g., team-level expected goals against) and birth country were consistently more influential predictors of goaltender performance.
+
+Although the smooth functions in the GAMs and partial dependence plots in the random forests suggest that shorter goalies may underperform slightly, especially at the extremes, these trends were subtle and may reflect other correlated factors such as experience or team quality.
+
+Importantly, these findings should be interpreted with several limitations in mind. The analysis focused on high-level summary metrics (GAA and SV%), which, while widely used, do not capture finer aspects of goaltender performance like shot quality faced, rebound control, or positioning. Additionally, the models were not validated on separate test data, as the primary aim was to explore interpretable patterns rather than maximize predictive accuracy. Finally, although height was modelled flexibly, potential interactions with playing style, coaching systems, or workload were not explicitly tested and could influence performance in more subtle ways.
+
+Overall, while taller goalies continue to be favored in NHL scouting and development, there is little statistical evidence that height alone is a meaningful driver of performance. Instead, goaltender success appears to depend more on situational context, skill, and team environment than on physical stature.

@@ -961,7 +961,7 @@ CatchesR
 
 <div class="figure" style="text-align: center">
 
-<img src="04_final_report_files/figure-gfm/unnamed-chunk-22-1.png" alt="Estimated smooth effect of height on GAA and their corresponding 95\% confidence intervals from the GAM with a Gamma distribution and log link."  />
+<img src="04_final_report_files/figure-gfm/unnamed-chunk-22-1.png" alt="Estimated smooth effect of height on GAA and their corresponding 95% confidence intervals from the GAM with a Gamma distribution and log link."  />
 <p class="caption">
 Estimated smooth effect of height on GAA and their corresponding 95%
 confidence intervals from the GAM with a Gamma distribution and log
