@@ -18,5 +18,5 @@ The full report can be read [here](https://github.com/rayceramsay/nhl-goalie-hei
 
 ## Website
 
-You can explore online versions of my EDA and modelling notebooks, an interactive report, and additional visualizations at
-rayceramsay.github.io/nhl-goalie-height-analysis.
+Along with the original Rmd notebooks found in this repository, you can explore the EDA, modelling, interactive report, and additional visualizations
+online through my [GitHub pages website](rayceramsay.github.io/nhl-goalie-height-analysis).
